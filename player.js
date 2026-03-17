@@ -10,6 +10,7 @@ let spotifyToken   = null;
 let tokenExpiry    = 0;
 let _batchQueue    = [];
 let queue          = [];
+let _preQueueIndex = -1;   // índice da música tocando ANTES de entrar na fila
 let ctxTargetIndex = -1;
 let _confirmCallback = null;
 let toastTimer;
@@ -898,8 +899,9 @@ function escHtml(s) {
   return String(s).replace(/[&<>"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]));
 }
 
-function selectTrack(i) {
+function selectTrack(i, fromQueue = false) {
   if (i < 0 || i >= tracks.length) return;
+  if (!fromQueue) _preQueueIndex = -1; // seleção manual cancela contexto de fila
   currentIndex = i;
 
   const _transEl = document.getElementById('track-transition');
@@ -995,18 +997,23 @@ function prevTrack() {
 function nextTrack() {
   if (tracks.length === 0) return;
   if (queue.length > 0) {
+    // Guarda o índice atual ANTES de consumir a fila (comportamento Spotify)
+    if (_preQueueIndex < 0) _preQueueIndex = currentIndex;
     const nextIdx = queue.shift();
-    selectTrack(nextIdx);
+    selectTrack(nextIdx, true);
     return;
   }
+  // Fila esgotada: retoma a partir da música que tocava antes da fila
+  const baseIndex = _preQueueIndex >= 0 ? _preQueueIndex : currentIndex;
+  _preQueueIndex = -1;
   let idx;
   if (isShuffle) {
     idx = shuffleNext();
   } else {
-    idx = currentIndex + 1;
+    idx = baseIndex + 1;
     if (idx >= tracks.length) idx = 0;
   }
-  selectTrack(idx);
+  selectTrack(idx, true);
 }
 
 function _buildShufflePool() {
@@ -1075,6 +1082,7 @@ function deleteTrack(e, i) {
     tracks.splice(i, 1);
     queue = queue.filter(qi => qi !== i).map(qi => qi > i ? qi - 1 : qi);
     _shufflePool = [];
+    _preQueueIndex = _preQueueIndex > i ? _preQueueIndex - 1 : (_preQueueIndex === i ? -1 : _preQueueIndex);
     if (currentIndex === i) {
       clearNowPlaying(); setPlaying(false);
     } else if (currentIndex > i) {
@@ -1606,6 +1614,7 @@ function ctxRemove() {
       tracks.splice(i, 1);
       queue = queue.filter(qi => qi !== i).map(qi => qi > i ? qi - 1 : qi);
       _shufflePool = [];
+      _preQueueIndex = _preQueueIndex > i ? _preQueueIndex - 1 : (_preQueueIndex === i ? -1 : _preQueueIndex);
       if (currentIndex === i) { clearNowPlaying(); setPlaying(false); }
       else if (currentIndex > i) currentIndex--;
       deleteTrackFromDB(t.id);
@@ -1651,7 +1660,7 @@ function closeQueuePanel() {
   document.getElementById('queue-panel').classList.add('hidden');
 }
 function clearQueue() {
-  queue = []; renderQueuePanel(); toast('Fila limpa.');
+  queue = []; _preQueueIndex = -1; renderQueuePanel(); toast('Fila limpa.');
 }
 function removeFromQueue(e, qPos) {
   e.stopPropagation();
