@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Web Player</title>
+<link rel="icon" type="image/png" href="icon/favicon.png">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="player.css">
+</head>
+<body>
+<div id="master-overlay">
+  <div class="master-card">
+    <span class="master-icon">🔐</span>
+    <h2 id="master-title">Criar senha</h2>
+    <p class="master-sub" id="master-sub">Esta senha criptografa suas credenciais do Spotify e Last.fm armazenadas localmente. Não é possível recuperá-la — guarde bem.</p>
+    <div class="input-group">
+      <label id="master-label">Senha</label>
+      <input type="password" id="master-input" placeholder="Digite uma senha" onkeydown="if(event.key==='Enter') masterConfirm()">
+    </div>
+    <div class="input-group" id="master-confirm-group">
+      <label>Confirmar senha</label>
+      <input type="password" id="master-confirm" placeholder="Repita a senha" onkeydown="if(event.key==='Enter') masterConfirm()">
+    </div>
+
+    <div style="position:relative;">
+      <div id="reset-confirm-popup">
+        <p>Isso vai apagar permanentemente suas credenciais do <strong>Spotify</strong> e <strong>Last.fm</strong>. Você precisará configurá-las novamente.</p>
+        <div class="reset-popup-actions">
+          <button class="reset-popup-confirm" onclick="masterResetConfirmed()">Apagar tudo</button>
+        </div>
+      </div>
+      <button class="btn-primary" onclick="masterConfirm()" id="master-btn">Confirmar</button>
+    </div>
+  </div>
+</div>
+
+<div id="setup-overlay" style="visibility:hidden;">
+  <div class="setup-card">
+    <div class="setup-tabs">
+      <button class="setup-tab active" id="tab-spotify" onclick="switchTab('spotify')"><svg width="14" height="14" viewBox="0 0 24 24" fill="#1DB954" style="flex-shrink:0"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.516 17.323a.75.75 0 0 1-1.031.25c-2.824-1.724-6.376-2.114-10.563-1.157a.75.75 0 0 1-.334-1.463c4.583-1.048 8.514-.597 11.678 1.339a.75.75 0 0 1 .25 1.031zm1.47-3.268a.937.937 0 0 1-1.288.308c-3.232-1.986-8.158-2.562-11.977-1.402a.937.937 0 1 1-.543-1.794c4.366-1.323 9.788-.682 13.5 1.6a.937.937 0 0 1 .308 1.288zm.127-3.405C15.608 8.394 9.485 8.194 6.027 9.23a1.125 1.125 0 1 1-.652-2.152c3.987-1.208 10.62-.975 14.81 1.595a1.125 1.125 0 0 1-1.072 1.977z"/></svg> Spotify</button>
+      <button class="setup-tab" id="tab-lastfm" onclick="switchTab('lastfm')"><img src="https://cdn.brandfetch.io/id-7gRYkpj/w/400/h/400/theme/dark/icon.jpeg?c=1bxid64Mup7aczewSAYMX&t=1667799583371" width="14" height="14" style="border-radius:3px;flex-shrink:0;vertical-align:middle"> Last.fm</button>
+    </div>
+
+    
+    <div class="setup-panel active" id="panel-spotify">
+      <h2>Configurar API do Spotify</h2>
+      <p class="subtitle">Para buscar capas e informações das músicas, você precisa de credenciais gratuitas do Spotify.</p>
+      <div class="setup-steps">
+        <p data-n="1.">Acesse <a href="https://developer.spotify.com/dashboard" target="_blank">developer.spotify.com/dashboard</a> e faça login.</p>
+        <p data-n="2.">Clique em <strong>"Create app"</strong>, preencha qualquer nome e descrição.</p>
+        <p data-n="3.">No campo <strong>Redirect URI</strong>, coloque: <code>http://localhost</code></p>
+        <p data-n="4.">Após criar, abra o app e clique em <strong>"Settings"</strong> para ver seu Client ID e Client Secret.</p>
+        <p data-n="5.">Cole os valores abaixo e pronto — eles ficam salvos no seu navegador.</p>
+      </div>
+      <div class="input-group">
+        <label>Client ID</label>
+        <input type="text" id="setup-client-id" placeholder="Cole seu Client ID aqui">
+      </div>
+      <div class="input-group">
+        <label>Client Secret</label>
+        <input type="password" id="setup-client-secret" placeholder="Cole seu Client Secret aqui">
+      </div>
+      <button class="btn-primary" onclick="saveCredentials()">Salvar e começar</button>
+    </div>
+
+    
+    <div class="setup-panel" id="panel-lastfm">
+      <h2>Configurar Last.fm</h2>
+      <p class="subtitle">Conecte sua conta do Last.fm para registrar scrobbles automaticamente enquanto você ouve.</p>
+      <div class="setup-steps">
+        <p data-n="1.">Acesse <a href="https://www.last.fm/api/account/create" target="_blank">last.fm/api/account/create</a> e crie um app gratuito.</p>
+        <p data-n="2.">Copie sua <strong>API Key</strong> e <strong>Shared Secret</strong> e cole abaixo.</p>
+        <p data-n="3.">Clique em <strong>"Autenticar com Last.fm"</strong> para autorizar sua conta.</p>
+        <p data-n="4.">Após autorizar, volte aqui e clique em <strong>"Já autorizei"</strong>.</p>
+      </div>
+      <div class="input-group">
+        <label>API Key</label>
+        <input type="text" id="lfm-api-key" placeholder="Cole sua API Key aqui">
+      </div>
+      <div class="input-group">
+        <label>Shared Secret</label>
+        <input type="password" id="lfm-api-secret" placeholder="Cole seu Shared Secret aqui">
+      </div>
+      <div id="lfm-setup-status" style="font-size:12px; color:var(--text-muted); min-height:16px; margin-bottom:14px;"></div>
+      <button class="btn-primary" onclick="lfmStartAuth()" style="margin-bottom:10px; background:linear-gradient(180deg,rgba(213,16,7,0.92),rgba(160,10,5,0.97) 60%,rgba(213,16,7,0.85));">Autenticar com Last.fm</button>
+      <button class="btn-primary" onclick="saveCredentials()" style="background:rgba(255,255,255,0.06); color:var(--text-dim); border:1px solid rgba(255,255,255,0.09); box-shadow:none; text-shadow:none;">Pular — configurar depois</button>
+    </div>
+  </div>
+</div>
+
+<div id="lfm-auth-modal" class="hidden">
+  <div class="lfm-modal-card">
+    <h3>🔴 Autorizar Last.fm</h3>
+    <p>Siga os passos abaixo para conectar sua conta:</p>
+    <div class="lfm-step"><span class="lfm-step-n">1.</span><p>Clique no link abaixo para abrir a página de autorização e clique em <strong>"Allow access"</strong>.</p></div>
+    <div class="lfm-step"><span class="lfm-step-n">2.</span><p><a id="lfm-auth-link" href="#" target="_blank" style="color:#d51007;">Abrir Last.fm para autorizar →</a></p></div>
+    <div class="lfm-step"><span class="lfm-step-n">3.</span><p>Após autorizar, volte aqui e clique em <strong>"Já autorizei"</strong>.</p></div>
+    <div id="lfm-modal-status" style="font-size:12px; color:var(--text-muted); min-height:16px; margin-bottom:14px;"></div>
+    <div class="lfm-modal-actions">
+      <button class="btn-cancel" onclick="document.getElementById('lfm-auth-modal').classList.add('hidden')">Cancelar</button>
+      <button class="btn-confirm" onclick="lfmGetSession()" id="lfm-session-btn" style="background:linear-gradient(180deg,rgba(213,16,7,0.92),rgba(160,10,5,0.97) 60%,rgba(213,16,7,0.85));border-color:rgba(255,80,80,0.4);">Já autorizei ✓</button>
+    </div>
+  </div>
+</div>
+
+<div id="app" style="visibility:hidden;">
+
+  
+  <div id="sidebar">
+    <div class="sidebar-header">
+      <h1>Minha Biblioteca</h1>
+      <span id="track-count">0 músicas</span>
+    </div>
+    <div class="search-wrap">
+      <svg class="search-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+      </svg>
+      <input type="text" id="search-input" class="search-input" placeholder="Buscar música ou artista…" oninput="filterTracks(this.value)">
+      <button class="search-clear hidden" id="search-clear" onclick="clearSearch()" data-tip="Limpar">
+        <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <button class="add-btn" onclick="triggerAddTrack()">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+        <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+      </svg>
+      Adicionar música
+    </button>
+    <div id="track-list"></div>
+  </div>
+
+  
+  <div id="main">
+    <div class="bg-blur" id="bg-blur"></div>
+    <div id="track-transition"></div>
+    <div class="now-playing-card">
+      <div class="album-art-wrap" id="album-wrap" style="display:none">
+        <div class="album-art-placeholder" id="art-placeholder" style="display:none">
+          <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+            <circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/>
+            <line x1="12" y1="2" x2="12" y2="9"/><line x1="12" y1="15" x2="12" y2="22"/>
+          </svg>
+        </div>
+        <img class="album-art hidden" id="album-art" src="" alt="Capa">
+      </div>
+      <div class="song-meta">
+        <div class="song-title" id="song-title">Nenhuma música selecionada</div>
+        <div class="song-artist" id="song-artist" style="display:none">—</div>
+      </div>
+    </div>
+  </div>
+
+  
+  <div id="player-bar">
+    <div class="lfm-scrobble-bar" id="lfm-scrobble-bar"></div>
+    <div class="progress-area">
+      <span class="time" id="time-current">0:00</span>
+      <input type="range" id="progress-bar" min="0" max="100" value="0" step="0.1" disabled>
+      <span class="time" id="time-total">0:00</span>
+    </div>
+    <div class="controls-row">
+
+      
+      <div class="controls-left">
+        <button class="ctrl-btn" id="btn-shuffle" onclick="toggleShuffle()" data-tip="Aleatório">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/>
+            <polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/>
+          </svg>
+        </button>
+        <button class="ctrl-btn" id="btn-repeat" onclick="toggleRepeat()" data-tip="Repetir">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/>
+            <polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/>
+          </svg>
+        </button>
+      </div>
+
+      
+      <div class="controls-center">
+        <button class="ctrl-btn" onclick="prevTrack()" data-tip="Anterior">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
+        </button>
+        <button class="ctrl-btn play-pause" id="btn-play" onclick="togglePlay()" data-tip="Play/Pause">
+          <svg id="icon-play" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+          <svg id="icon-pause" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style="display:none"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+        </button>
+        <button class="ctrl-btn" onclick="nextTrack()" data-tip="Próxima">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M16 6h2v12h-2zm-2.5 6L5 6v12z"/></svg>
+        </button>
+      </div>
+
+      
+      <div class="controls-right">
+        
+        <div class="queue-btn-wrap">
+          <button class="ctrl-btn" id="btn-queue" onclick="toggleQueuePanel()" data-tip="Fila">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+          </button>
+          <div id="queue-panel" class="queue-panel hidden">
+            <div class="queue-panel-header">
+              <span>Fila</span>
+              <button onclick="clearQueue()" id="btn-clear-queue" class="queue-clear-btn" data-tip="Limpar fila">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+            </div>
+            <div id="queue-panel-list"></div>
+          </div>
+        </div>
+
+        <div class="volume-area">
+          <button class="ctrl-btn" onclick="toggleMute()" data-tip="Mudo" id="btn-mute">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+              <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+              <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/>
+            </svg>
+          </button>
+          <input type="range" id="volume-slider" min="0" max="100" value="100">
+        </div>
+
+        
+        <div id="lastfm-status" style="display:none" onclick="lfmStatusClick()">
+          <span class="lfm-dot"></span>
+          <span class="lfm-label" id="lfm-status-text"></span>
+          <button class="lfm-connect-btn" id="lfm-connect-btn" style="display:none"></button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<div id="settings-wrap" style="visibility:hidden;">
+  <button id="btn-gear" onclick="toggleSettingsPanel()" data-tip="Configurações">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+    </svg>
+  </button>
+  <div id="settings-panel" class="hidden">
+    <div class="settings-section">
+      <div class="settings-section-title">Spotify API</div>
+      <div class="settings-field"><label>Client ID</label><input type="text" id="cfg-sp-cid" placeholder="Cole seu Client ID"></div>
+      <div class="settings-field"><label>Client Secret</label><input type="password" id="cfg-sp-cs" placeholder="Cole seu Client Secret"></div>
+      <button class="settings-save-btn" onclick="saveSettingsSpotify()">Salvar</button>
+    </div>
+    <div class="settings-section">
+      <div class="settings-section-title">Last.fm</div>
+      <div class="settings-field"><label>API Key</label><input type="text" id="cfg-lfm-key" placeholder="Cole sua API Key"></div>
+      <div class="settings-field"><label>Shared Secret</label><input type="password" id="cfg-lfm-secret" placeholder="Cole seu Shared Secret"></div>
+      <button class="settings-save-btn" onclick="saveSettingsLfm()" style="margin-bottom:6px;">Salvar & Autenticar</button>
+      <div class="settings-lfm-row" id="settings-lfm-row">
+        <span class="lfm-dot-sm"></span>
+        <span id="settings-lfm-label">Não conectado</span>
+        <button class="settings-lfm-disconnect hidden" id="settings-lfm-disconnect" onclick="settingsLfmDisconnect()">Desconectar</button>
+      </div>
+    </div>
+    <div class="settings-section">
+      <div class="settings-section-title">Biblioteca</div>
+      <button class="settings-save-btn" onclick="openClearLibraryModal()" style="margin-top:0;background:linear-gradient(180deg,rgba(200,50,50,0.7),rgba(160,30,30,0.8));border-color:rgba(255,80,80,0.3);color:#ffaaaa;">Limpar biblioteca</button>
+    </div>
+  </div>
+</div>
+
+<div id="ctx-menu">
+  <div class="ctx-item" onclick="ctxAddToQueue()">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><polyline points="3 18 5 20 8 16"/></svg>
+    Adicionar à fila
+  </div>
+  <div class="ctx-item" onclick="ctxPlayNext()">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M16 6h2v12h-2zm-2.5 6L5 6v12z"/></svg>
+    Tocar em seguida
+  </div>
+  <div class="ctx-sep" id="ctx-sep-adddata" style="display:none;"></div>
+  <div class="ctx-item" id="ctx-item-adddata" onclick="ctxAddData()" style="display:none;">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+    Deseja adicionar dados a essa música?
+  </div>
+  <div class="ctx-sep"></div>
+  <div class="ctx-item" onclick="ctxRemove()">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    Remover
+  </div>
+</div>
+
+<div id="confirm-overlay" class="hidden">
+  <div class="confirm-card">
+    <h3>Remover música</h3>
+    <p id="confirm-msg">Tem certeza?</p>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeConfirmDelete()">Cancelar</button>
+      <button class="btn-confirm" id="confirm-yes-btn">Remover</button>
+    </div>
+  </div>
+</div>
+
+<div id="clear-library-modal" class="hidden">
+  <div class="confirm-card">
+    <h3>Limpar biblioteca</h3>
+    <p>Isso vai apagar <strong>todas as músicas</strong> da biblioteca permanentemente. Esta ação não pode ser desfeita.</p>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeClearLibraryModal()">Cancelar</button>
+      <button class="btn-confirm" onclick="confirmClearDatabase()" style="background:linear-gradient(180deg,rgba(200,50,50,0.85),rgba(160,30,30,0.95));border-color:rgba(255,80,80,0.35);box-shadow:0 4px 14px rgba(200,50,50,0.3),inset 0 1px 0 rgba(255,255,255,0.12);">Limpar tudo</button>
+    </div>
+  </div>
+</div>
+
+<div id="custom-tooltip"></div>
+
+<div id="file-picker-overlay" class="hidden">
+  <div class="fp-card">
+    <div class="fp-header">
+      <div class="fp-icon">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+      </div>
+      <div>
+        <div class="fp-title">Adicionar música</div>
+        <div class="fp-subtitle">Selecione um arquivo de áudio do seu computador</div>
+      </div>
+    </div>
+    <div class="fp-drop" id="fp-drop-zone" ondragover="fpDragOver(event)" ondragleave="fpDragLeave(event)" ondrop="fpDrop(event)">
+      <div class="fp-drop-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      </div>
+      <div class="fp-drop-main">Arraste e solte aqui</div>
+      <div class="fp-drop-sub">Solte seu arquivo de áudio nesta área</div>
+      <div class="fp-drop-badge">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+        mp3 · flac · wav · ogg · m4a · aac
+      </div>
+    </div>
+    <div class="fp-divider">ou</div>
+    <button class="fp-btn-browse" onclick="fpBrowse()">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+      Procurar no computador
+    </button>
+    <div class="fp-formats">MP3 · FLAC · WAV · OGG · M4A · AAC · OPUS e mais</div>
+    <div class="fp-footer">
+      <button class="fp-cancel" onclick="fpClose()">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<div id="modal-overlay" class="hidden">
+  <div class="modal-card">
+    <h3 id="modal-title">Adicionar música</h3>
+    <p class="hint" id="modal-hint">Cole o link da música no Spotify para buscar automaticamente a capa, nome e artista. <strong style="color:var(--text-dim);">Obrigatório</strong> para adicionar com dados.</p>
+    <div class="input-group">
+      <label>Link do Spotify</label>
+      <input type="text" id="modal-spotify-url" placeholder="https://open.spotify.com/track/..." oninput="_modalUrlErrClear()">
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal()">Cancelar</button>
+      <button class="btn-no-data" id="btn-no-data" onclick="confirmAddNoData()">Sem dados</button>
+      <button class="btn-confirm" id="btn-confirm" onclick="confirmAdd()">Buscar e adicionar</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<div id="progress-tooltip"></div>
+
+<input type="file" id="file-input" accept="audio/*" multiple style="display:none" onchange="onFileSelected(event)">
+
+<audio id="audio-el"></audio>
+<script src="player.js"></script>
+</body>
+</html>
