@@ -10,7 +10,7 @@ let spotifyToken   = null;
 let tokenExpiry    = 0;
 let _batchQueue    = [];
 let queue          = [];
-let _preQueueIndex = -1;   // índice da música tocando ANTES de entrar na fila
+let _preQueueIndex = -1;   
 let ctxTargetIndex = -1;
 let _confirmCallback = null;
 let toastTimer;
@@ -196,7 +196,6 @@ async function masterConfirm() {
   const btn  = document.getElementById('master-btn');
   const hasData = _hasEncryptedCreds();
 
-  // Cooldown check comes first — show it even when field is empty
   if (hasData) {
     const now = Date.now();
     if (_masterLockedUntil > now) {
