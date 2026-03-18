@@ -118,5 +118,3 @@ cd web-player
 - **Spotify Web API** — busca de metadados de faixas
 - **Last.fm API** — autenticação e scrobbling
 - **Virtual scroll** — renderização eficiente de bibliotecas grandes
-
----
