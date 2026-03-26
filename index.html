@@ -61,7 +61,12 @@
         <label>Client Secret</label>
         <input type="password" id="setup-client-secret" placeholder="Cole seu Client Secret aqui">
       </div>
-      <button class="btn-primary" onclick="saveCredentials()">Salvar e começar</button>
+      <div class="setup-warn-tooltip hidden" id="sp-warn-tooltip">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        <span id="sp-warn-text">Preencha o Client ID e o Client Secret.</span>
+      </div>
+      <button class="btn-primary" onclick="saveSpotifyCredentials()" style="margin-bottom:10px;">Salvar e começar</button>
+      <button class="btn-primary" onclick="skipSpotifyCredentials()" style="background:rgba(255,255,255,0.06); color:var(--text-dim); border:1px solid rgba(255,255,255,0.09); box-shadow:none; text-shadow:none;">Pular — configurar depois</button>
     </div>
 
     
@@ -82,7 +87,10 @@
         <label>Shared Secret</label>
         <input type="password" id="lfm-api-secret" placeholder="Cole seu Shared Secret aqui">
       </div>
-      <div id="lfm-setup-status" style="font-size:12px; color:var(--text-muted); min-height:16px; margin-bottom:14px;"></div>
+      <div class="setup-warn-tooltip hidden" id="lfm-warn-tooltip">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        <span id="lfm-warn-text">Preencha a API Key e o Shared Secret.</span>
+      </div>
       <button class="btn-primary" onclick="lfmStartAuth()" style="margin-bottom:10px; background:linear-gradient(180deg,rgba(213,16,7,0.92),rgba(160,10,5,0.97) 60%,rgba(213,16,7,0.85));">Autenticar com Last.fm</button>
       <button class="btn-primary" onclick="saveCredentials()" style="background:rgba(255,255,255,0.06); color:var(--text-dim); border:1px solid rgba(255,255,255,0.09); box-shadow:none; text-shadow:none;">Pular — configurar depois</button>
     </div>
@@ -239,13 +247,13 @@
   </button>
   <div id="settings-panel" class="hidden">
     <div class="settings-section">
-      <div class="settings-section-title">Spotify API</div>
+      <div class="settings-section-title">Spotify API <button class="settings-help-btn" onclick="openSetupOverlay('spotify')" title="Como configurar">?</button></div>
       <div class="settings-field"><label>Client ID</label><input type="text" id="cfg-sp-cid" placeholder="Cole seu Client ID"></div>
       <div class="settings-field"><label>Client Secret</label><input type="password" id="cfg-sp-cs" placeholder="Cole seu Client Secret"></div>
       <button class="settings-save-btn" onclick="saveSettingsSpotify()">Salvar</button>
     </div>
     <div class="settings-section">
-      <div class="settings-section-title">Last.fm</div>
+      <div class="settings-section-title">Last.fm <button class="settings-help-btn" onclick="openSetupOverlay('lastfm')" title="Como configurar">?</button></div>
       <div class="settings-field"><label>API Key</label><input type="text" id="cfg-lfm-key" placeholder="Cole sua API Key"></div>
       <div class="settings-field"><label>Shared Secret</label><input type="password" id="cfg-lfm-secret" placeholder="Cole seu Shared Secret"></div>
       <button class="settings-save-btn" onclick="saveSettingsLfm()" style="margin-bottom:6px;">Salvar & Autenticar</button>
