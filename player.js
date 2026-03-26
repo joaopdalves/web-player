@@ -60,11 +60,11 @@ const DRAG_THRESHOLD  = 5;
 const audio = document.getElementById('audio-el');
 
 function _hasEncryptedCreds() {
-  return ['sp_cid', 'sp_cs', 'lfm_key', 'lfm_secret'].some(k => !!localStorage.getItem('enc_' + k));
+  return ['sp_cid', 'sp_cs', 'lfm_key', 'lfm_secret', 'lfm_session', 'lfm_user', '_sentinel'].some(k => !!localStorage.getItem('enc_' + k));
 }
 
 function _getFirstEncryptedKey() {
-  const found = ['sp_cid', 'sp_cs', 'lfm_key', 'lfm_secret'].find(k => !!localStorage.getItem('enc_' + k));
+  const found = ['sp_cid', 'sp_cs', 'lfm_key', 'lfm_secret', 'lfm_session', 'lfm_user', '_sentinel'].find(k => !!localStorage.getItem('enc_' + k));
   return found ? 'enc_' + found : null;
 }
 
@@ -255,6 +255,11 @@ async function masterConfirm() {
   }
 
   _pwStore.set(pw);
+  if (!hasData) {
+    // Salva um marcador criptografado para detectar o usuário em reloads futuros,
+    // mesmo que ele pule todas as configurações opcionais.
+    saveSecret('_sentinel', '1').catch(() => {});
+  }
   document.getElementById('master-overlay').classList.add('hidden');
   const appEl = document.getElementById('app');
   appEl.style.visibility = 'visible';
@@ -323,13 +328,14 @@ function masterResetConfirmed() {
 
 async function init() {
   await masterPrompt();
-  const spCid = await loadSecret('sp_cid');
-  const spCs  = await loadSecret('sp_cs');
-  if (spCid && spCs) {
+
+  const setupDone = localStorage.getItem('_setup_done');
+  if (!setupDone) {
+    localStorage.setItem('_setup_done', '1');
     document.getElementById('setup-overlay').style.visibility = 'visible';
-    document.getElementById('setup-overlay').classList.add('hidden');
   } else {
     document.getElementById('setup-overlay').style.visibility = 'visible';
+    document.getElementById('setup-overlay').classList.add('hidden');
   }
   await loadTracks();
   setupVirtualScroll();
@@ -356,21 +362,65 @@ function switchTab(tab) {
   });
 }
 
+function openSetupOverlay(tab) {
+  const overlay = document.getElementById('setup-overlay');
+  overlay.style.visibility = 'visible';
+  overlay.classList.remove('hidden');
+  switchTab(tab || 'spotify');
+  document.getElementById('settings-panel').classList.add('hidden');
+}
+
+function _showSetupWarn(tooltipId, textId, msg) {
+  const tip = document.getElementById(tooltipId);
+  const txt = document.getElementById(textId);
+  if (txt) txt.textContent = msg;
+  if (tip) {
+    tip.classList.remove('hidden');
+    tip.classList.add('visible');
+    clearTimeout(tip._hideTimer);
+    tip._hideTimer = setTimeout(() => {
+      tip.classList.remove('visible');
+      setTimeout(() => tip.classList.add('hidden'), 250);
+    }, 3500);
+  }
+}
+
+function saveSpotifyCredentials() {
+  const cid = document.getElementById('setup-client-id').value.trim();
+  const cs  = document.getElementById('setup-client-secret').value.trim();
+  if (!cid || !cs) {
+    _showSetupWarn('sp-warn-tooltip', 'sp-warn-text', 'Preencha o Client ID e o Client Secret.');
+    return;
+  }
+  (async () => {
+    try {
+      await saveSecret('sp_cid', cid);
+      await saveSecret('sp_cs', cs);
+      toast('Credenciais do Spotify salvas!');
+      switchTab('lastfm');
+    } catch(e) {
+      _showSetupWarn('sp-warn-tooltip', 'sp-warn-text', 'Erro ao salvar — tente novamente.');
+    }
+  })();
+}
+
+function skipSpotifyCredentials() {
+  switchTab('lastfm');
+}
+
 function saveCredentials() {
-  const cid    = document.getElementById('setup-client-id').value.trim();
-  const cs     = document.getElementById('setup-client-secret').value.trim();
   const lfmKey = document.getElementById('lfm-api-key').value.trim();
   const lfmSec = document.getElementById('lfm-api-secret').value.trim();
   (async () => {
-    if (cid && cs) { await saveSecret('sp_cid', cid); await saveSecret('sp_cs', cs); }
-    if (lfmKey) await saveSecret('lfm_key', lfmKey);
-    if (lfmSec) await saveSecret('lfm_secret', lfmSec);
-    const spCid = await loadSecret('sp_cid');
-    const spCs  = await loadSecret('sp_cs');
-    if (!spCid || !spCs) { toast('Preencha as credenciais do Spotify primeiro.'); switchTab('spotify'); return; }
-    document.getElementById('setup-overlay').classList.add('hidden');
-    lfmInit();
-    toast('Configurações salvas!');
+    try {
+      if (lfmKey) await saveSecret('lfm_key', lfmKey);
+      if (lfmSec) await saveSecret('lfm_secret', lfmSec);
+      document.getElementById('setup-overlay').classList.add('hidden');
+      lfmInit();
+      toast('Configurações salvas!');
+    } catch(e) {
+      toast('Erro ao salvar configurações — tente novamente.');
+    }
   })();
 }
 
@@ -1291,15 +1341,20 @@ async function lfmStartAuth() {
   const key = document.getElementById('lfm-api-key').value.trim();
   const sec = document.getElementById('lfm-api-secret').value.trim();
   if (!key || !sec) {
-    document.getElementById('lfm-setup-status').textContent = '⚠️ Preencha API Key e Shared Secret.';
+    _showSetupWarn('lfm-warn-tooltip', 'lfm-warn-text', 'Preencha a API Key e o Shared Secret.');
     return;
   }
-  await saveSecret('lfm_key', key);
-  await saveSecret('lfm_secret', sec);
+  try {
+    await saveSecret('lfm_key', key);
+    await saveSecret('lfm_secret', sec);
+  } catch(e) {
+    _showSetupWarn('lfm-warn-tooltip', 'lfm-warn-text', 'Erro ao salvar — tente novamente.');
+    return;
+  }
   lfmApiKey = key;
   lfmApiSecret = sec;
 
-  document.getElementById('lfm-setup-status').textContent = 'Obtendo token...';
+  _showSetupWarn('lfm-warn-tooltip', 'lfm-warn-text', 'Obtendo token...');
 
   try {
     const token = await lfmGetToken();
@@ -1310,9 +1365,11 @@ async function lfmStartAuth() {
     document.getElementById('lfm-auth-link').href = authUrl;
     document.getElementById('lfm-modal-status').textContent = '';
     document.getElementById('lfm-auth-modal').classList.remove('hidden');
-    document.getElementById('lfm-setup-status').textContent = '';
+    // hide warn tooltip on success
+    const tip = document.getElementById('lfm-warn-tooltip');
+    if (tip) { tip.classList.remove('visible'); setTimeout(() => tip.classList.add('hidden'), 250); }
   } catch(e) {
-    document.getElementById('lfm-setup-status').textContent = '✗ ' + e.message;
+    _showSetupWarn('lfm-warn-tooltip', 'lfm-warn-text', '✗ ' + e.message);
   }
 }
 
@@ -2025,10 +2082,14 @@ function saveSettingsSpotify() {
   const cs  = document.getElementById('cfg-sp-cs').value.trim();
   if (!cid || !cs) { toast('Preencha Client ID e Secret.'); return; }
   (async () => {
-    await saveSecret('sp_cid', cid);
-    await saveSecret('sp_cs', cs);
-    spotifyToken = null;
-    toast('Credenciais do Spotify salvas ✓');
+    try {
+      await saveSecret('sp_cid', cid);
+      await saveSecret('sp_cs', cs);
+      spotifyToken = null;
+      toast('Credenciais do Spotify salvas ✓');
+    } catch(e) {
+      toast('Erro ao salvar credenciais — tente novamente.');
+    }
   })();
 }
 function saveSettingsLfm() {
@@ -2036,13 +2097,17 @@ function saveSettingsLfm() {
   const sec = document.getElementById('cfg-lfm-secret').value.trim();
   if (!key || !sec) { toast('Preencha API Key e Shared Secret.'); return; }
   (async () => {
-    await saveSecret('lfm_key', key);
-    await saveSecret('lfm_secret', sec);
-    lfmApiKey    = key;
-    lfmApiSecret = sec;
-    closeSettingsPanel();
-    lfmUpdateStatusUI();
-    await lfmStartAuthFromSettings(key, sec);
+    try {
+      await saveSecret('lfm_key', key);
+      await saveSecret('lfm_secret', sec);
+      lfmApiKey    = key;
+      lfmApiSecret = sec;
+      closeSettingsPanel();
+      lfmUpdateStatusUI();
+      await lfmStartAuthFromSettings(key, sec);
+    } catch(e) {
+      toast('Erro ao salvar credenciais — tente novamente.');
+    }
   })();
 }
 
