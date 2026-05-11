@@ -124,18 +124,60 @@
       <svg class="search-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
         <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
       </svg>
-      <input type="text" id="search-input" class="search-input" placeholder="Buscar música ou artista…" oninput="filterTracks(this.value)">
+      <input type="text" id="search-input" class="search-input" placeholder="Buscar música ou artista…" oninput="onSearchInput(this.value)">
       <button class="search-clear hidden" id="search-clear" onclick="clearSearch()" data-tip="Limpar">
         <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
     </div>
-    <button class="add-btn" onclick="triggerAddTrack()">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+    <button class="add-btn" id="main-action-btn" onclick="mainActionClick()">
+      <svg id="main-action-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
         <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
       </svg>
-      Adicionar música
+      <span id="main-action-label">Adicionar música</span>
     </button>
-    <div id="track-list"></div>
+
+    <div class="lib-nav">
+      <button class="lib-nav-btn active" id="nav-library" onclick="setLibraryView('library')">Músicas</button>
+      <button class="lib-nav-btn" id="nav-playlists" onclick="setLibraryView('playlists')">Playlists</button>
+    </div>
+
+    
+    <div id="view-library">
+      <div id="track-list"></div>
+    </div>
+
+    
+    <div id="view-playlists" class="hidden">
+      <div id="playlist-list-view">
+        <div id="playlists-container"></div>
+      </div>
+      <div id="playlist-detail-view" class="hidden">
+        <div class="playlist-detail-header">
+          <button class="playlist-back-btn" onclick="closePlaylistDetail()">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+            Voltar
+          </button>
+          <div class="playlist-detail-info">
+            <div class="playlist-detail-cover" id="playlist-detail-cover"></div>
+            <div>
+              <div class="playlist-detail-name" id="playlist-detail-name"></div>
+              <div class="playlist-detail-desc" id="playlist-detail-desc"></div>
+              <div class="playlist-detail-tags" id="playlist-detail-tags"></div>
+            </div>
+          </div>
+          <div class="playlist-sort-row">
+            <span class="playlist-sort-label">Ordenar:</span>
+            <select class="playlist-sort-select" id="playlist-sort-select" onchange="applyPlaylistSort()">
+              <option value="order">Ordem manual</option>
+              <option value="alpha">Alfabética</option>
+              <option value="added_desc">Mais recente → Mais antiga</option>
+              <option value="added_asc">Mais antiga → Mais recente</option>
+            </select>
+          </div>
+        </div>
+        <div id="playlist-tracks-list"></div>
+      </div>
+    </div>
   </div>
 
   
@@ -247,13 +289,13 @@
   </button>
   <div id="settings-panel" class="hidden">
     <div class="settings-section">
-      <div class="settings-section-title">Spotify API <button class="settings-help-btn" onclick="openSetupOverlay('spotify')" title="Como configurar">?</button></div>
+      <div class="settings-section-title">Spotify API <button class="settings-help-btn" onclick="openSetupOverlay('spotify')" data-tip="Como configurar">?</button></div>
       <div class="settings-field"><label>Client ID</label><input type="text" id="cfg-sp-cid" placeholder="Cole seu Client ID"></div>
       <div class="settings-field"><label>Client Secret</label><input type="password" id="cfg-sp-cs" placeholder="Cole seu Client Secret"></div>
       <button class="settings-save-btn" onclick="saveSettingsSpotify()">Salvar</button>
     </div>
     <div class="settings-section">
-      <div class="settings-section-title">Last.fm <button class="settings-help-btn" onclick="openSetupOverlay('lastfm')" title="Como configurar">?</button></div>
+      <div class="settings-section-title">Last.fm <button class="settings-help-btn" onclick="openSetupOverlay('lastfm')" data-tip="Como configurar">?</button></div>
       <div class="settings-field"><label>API Key</label><input type="text" id="cfg-lfm-key" placeholder="Cole sua API Key"></div>
       <div class="settings-field"><label>Shared Secret</label><input type="password" id="cfg-lfm-secret" placeholder="Cole seu Shared Secret"></div>
       <button class="settings-save-btn" onclick="saveSettingsLfm()" style="margin-bottom:6px;">Salvar & Autenticar</button>
@@ -283,6 +325,12 @@
   <div class="ctx-item" id="ctx-item-adddata" onclick="ctxAddData()" style="display:none;">
     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
     Deseja adicionar dados a essa música?
+  </div>
+  <div class="ctx-sep"></div>
+  <div class="ctx-sep"></div>
+  <div class="ctx-item" onclick="ctxAddToPlaylist()">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    Adicionar em uma playlist
   </div>
   <div class="ctx-sep"></div>
   <div class="ctx-item" onclick="ctxRemove()">
@@ -367,9 +415,131 @@
 
 <div id="toast"></div>
 
+
+<div id="create-playlist-modal" class="hidden">
+  <div class="modal-card playlist-modal-card">
+    <h3>Criar playlist</h3>
+    <div class="input-group" style="margin-bottom:12px;">
+      <label>Nome <span style="color:#e05555;">*</span></label>
+      <input type="text" id="pl-name" placeholder="Nome da playlist">
+    </div>
+    <div class="input-group" style="margin-bottom:12px;">
+      <label>Foto (opcional)</label>
+      <div class="pl-photo-row">
+        <div class="pl-photo-preview" id="pl-photo-preview">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+        </div>
+        <button class="pl-photo-btn" onclick="document.getElementById('pl-photo-input').click()">Escolher imagem</button>
+        <input type="file" id="pl-photo-input" accept="image/*" style="display:none" onchange="plPhotoSelected(event)">
+      </div>
+    </div>
+    <div class="input-group" style="margin-bottom:12px;">
+      <label>Descrição (opcional)</label>
+      <textarea id="pl-desc" class="pl-textarea" placeholder="Descrição da playlist..." rows="2"></textarea>
+    </div>
+    <div class="input-group" style="margin-bottom:4px;">
+      <label>Tags (até 3)</label>
+      <div class="pl-tags-row" id="pl-tags-row">
+        <input type="text" class="pl-tag-input" id="pl-tag-1" placeholder="ex: emo" maxlength="20" oninput="plTagInput(1)">
+        <input type="text" class="pl-tag-input" id="pl-tag-2" placeholder="ex: metalcore" maxlength="20" oninput="plTagInput(2)">
+        <input type="text" class="pl-tag-input" id="pl-tag-3" placeholder="ex: deathcore" maxlength="20" oninput="plTagInput(3)">
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeCreatePlaylistModal()">Cancelar</button>
+      <button class="btn-confirm" onclick="confirmCreatePlaylist()">Criar</button>
+    </div>
+  </div>
+</div>
+
+
+<div id="add-to-playlist-modal" class="hidden">
+  <div class="modal-card">
+    <h3>Adicionar em uma playlist</h3>
+    <div id="add-to-playlist-list" class="atp-list"></div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeAddToPlaylistModal()">Fechar</button>
+    </div>
+  </div>
+</div>
+
 <div id="progress-tooltip"></div>
 
 <input type="file" id="file-input" accept="audio/*" multiple style="display:none" onchange="onFileSelected(event)">
+
+
+<div id="delete-playlist-modal" class="hidden">
+  <div class="confirm-card">
+    <h3>Deletar playlist</h3>
+    <p id="delete-playlist-msg">Tem certeza que deseja deletar esta playlist? Esta ação não pode ser desfeita.</p>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeDeletePlaylistModal()">Cancelar</button>
+      <button class="btn-confirm" id="delete-playlist-yes-btn" style="background:linear-gradient(180deg,rgba(200,50,50,0.85),rgba(160,30,30,0.95));border-color:rgba(255,80,80,0.35);box-shadow:0 4px 14px rgba(200,50,50,0.3),inset 0 1px 0 rgba(255,255,255,0.12);">Deletar</button>
+    </div>
+  </div>
+</div>
+
+
+<div id="remove-from-playlist-modal" class="hidden">
+  <div class="confirm-card">
+    <h3>Remover da playlist</h3>
+    <p id="remove-from-playlist-msg">Tem certeza que deseja remover esta música da playlist?</p>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeRemoveFromPlaylistModal()">Cancelar</button>
+      <button class="btn-confirm" id="remove-from-playlist-yes-btn">Remover</button>
+    </div>
+  </div>
+</div>
+
+
+<div id="ctx-playlist-menu">
+  <div class="ctx-item" onclick="ctxEditPlaylist()">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+    Editar playlist
+  </div>
+  <div class="ctx-sep-line"></div>
+  <div class="ctx-item ctx-danger" onclick="ctxDeletePlaylist()">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+    Deletar playlist
+  </div>
+</div>
+
+
+<div id="edit-playlist-modal" class="hidden">
+  <div class="modal-card playlist-modal-card">
+    <h3>Editar playlist</h3>
+    <div class="input-group" style="margin-bottom:12px;">
+      <label>Nome <span style="color:#e05555;">*</span></label>
+      <input type="text" id="pl-edit-name" placeholder="Nome da playlist">
+    </div>
+    <div class="input-group" style="margin-bottom:12px;">
+      <label>Foto (opcional)</label>
+      <div class="pl-photo-row">
+        <div class="pl-photo-preview" id="pl-edit-photo-preview">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+        </div>
+        <button class="pl-photo-btn" onclick="document.getElementById('pl-edit-photo-input').click()">Escolher imagem</button>
+        <input type="file" id="pl-edit-photo-input" accept="image/*" style="display:none" onchange="plEditPhotoSelected(event)">
+      </div>
+    </div>
+    <div class="input-group" style="margin-bottom:12px;">
+      <label>Descrição (opcional)</label>
+      <textarea id="pl-edit-desc" class="pl-textarea" placeholder="Descrição da playlist..." rows="2"></textarea>
+    </div>
+    <div class="input-group" style="margin-bottom:4px;">
+      <label>Tags (até 3)</label>
+      <div class="pl-tags-row">
+        <input type="text" class="pl-tag-input" id="pl-edit-tag-1" placeholder="ex: emo" maxlength="20">
+        <input type="text" class="pl-tag-input" id="pl-edit-tag-2" placeholder="ex: metalcore" maxlength="20">
+        <input type="text" class="pl-tag-input" id="pl-edit-tag-3" placeholder="ex: deathcore" maxlength="20">
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeEditPlaylistModal()">Cancelar</button>
+      <button class="btn-confirm" onclick="confirmEditPlaylist()">Salvar</button>
+    </div>
+  </div>
+</div>
 
 <audio id="audio-el"></audio>
 <script src="player.js"></script>
