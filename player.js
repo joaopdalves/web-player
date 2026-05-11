@@ -136,17 +136,18 @@ function _modalUrlErrClear() {
   input.classList.remove('input-error');
   input.placeholder = _modalUrlPlaceholder;
 }
-function _masterErr(msg, targetId = 'master-input') {
+function _masterErr(msg, targetId = 'master-input', centered = false) {
   const input = document.getElementById(targetId);
   input.value = '';
   input.placeholder = msg;
   input.classList.add('input-error');
+  if (centered) input.classList.add('input-error-centered');
   input.focus();
 }
 function _masterErrClear() {
   ['master-input', 'master-confirm'].forEach(id => {
     const el = document.getElementById(id);
-    el.classList.remove('input-error');
+    el.classList.remove('input-error', 'input-error-centered');
     el.placeholder = _masterPlaceholders[id];
   });
 }
@@ -177,7 +178,7 @@ function masterPrompt() {
       btn.style.boxShadow = 'none';
       btn.style.textShadow = 'none';
       btn.onclick = masterReset;
-      _masterErr('Você esgotou as suas tentativas.');
+      _masterErr('Você esgotou as suas tentativas.', 'master-input', true);
     } else {
       document.getElementById('master-input').disabled = false;
       const btn = document.getElementById('master-btn');
@@ -200,7 +201,7 @@ async function masterConfirm() {
     const now = Date.now();
     if (_masterLockedUntil > now) {
       const secs = Math.ceil((_masterLockedUntil - now) / 1000);
-      _masterErr(`Aguarde ${secs}s antes de tentar novamente.`);
+      _masterErr(`Aguarde ${secs}s antes de tentar novamente.`, 'master-input', true);
       return;
     }
   }
@@ -235,7 +236,7 @@ async function masterConfirm() {
       localStorage.setItem('_masterLockedUntil', String(_masterLockedUntil));
       const restantes = 3 - _masterAttempts;
       if (_masterAttempts >= 3) {
-        _masterErr('Você esgotou as suas tentativas.');
+        _masterErr('Você esgotou as suas tentativas.', 'master-input', true);
         document.getElementById('master-input').disabled = true;
         btn.textContent = 'Apagar dados e recomeçar';
         btn.disabled = false;
@@ -247,7 +248,7 @@ async function masterConfirm() {
         btn.onclick = masterReset;
       } else {
         const waitSec = Math.ceil((delays[_masterAttempts - 1] || 0) / 1000);
-        _masterErr(`Senha incorreta. ${restantes} tentativa${restantes > 1 ? 's' : ''} restante${restantes > 1 ? 's' : ''}${waitSec > 0 ? ` — aguarde ${waitSec}s` : ''}.`);
+        _masterErr(`Senha incorreta. ${restantes} tentativa${restantes > 1 ? 's' : ''} restante${restantes > 1 ? 's' : ''}.`, 'master-input', true);
         btn.textContent = 'Entrar'; btn.disabled = false;
       }
       return;
@@ -995,9 +996,10 @@ function escHtml(s) {
   return String(s).replace(/[&<>"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]));
 }
 
-function selectTrack(i, fromQueue = false) {
+function selectTrack(i, fromQueue = false, keepPlaylistContext = false) {
   if (i < 0 || i >= tracks.length) return;
-  if (!fromQueue) _preQueueIndex = -1; 
+  if (!fromQueue) _preQueueIndex = -1;
+  if (!keepPlaylistContext) _playlistContext = null;
   currentIndex = i;
 
   const _transEl = document.getElementById('track-transition');
@@ -1057,6 +1059,8 @@ function selectTrack(i, fromQueue = false) {
 
   renderList();
 
+  if (currentPlaylistId) renderPlaylistTracks();
+
   const list = document.getElementById('track-list');
   const itemTop = i * ITEM_H;
   const itemBot = itemTop + ITEM_H;
@@ -1085,6 +1089,14 @@ function togglePlay() {
 function prevTrack() {
   if (tracks.length === 0) return;
   if (audio.currentTime > 3) { audio.currentTime = 0; return; }
+  const plIds = _getPlaylistTrackIds();
+  if (plIds && plIds.length > 0) {
+    const currentTrackId = tracks[currentIndex]?.id;
+    const pos = plIds.indexOf(currentTrackId);
+    const prevPos = pos <= 0 ? plIds.length - 1 : pos - 1;
+    const idx = tracks.findIndex(t => t.id === plIds[prevPos]);
+    if (idx >= 0) { selectTrack(idx, false, true); return; }
+  }
   let idx = currentIndex - 1;
   if (idx < 0) idx = tracks.length - 1;
   selectTrack(idx);
@@ -1093,13 +1105,29 @@ function prevTrack() {
 function nextTrack() {
   if (tracks.length === 0) return;
   if (queue.length > 0) {
-    
     if (_preQueueIndex < 0) _preQueueIndex = currentIndex;
     const nextIdx = queue.shift();
     selectTrack(nextIdx, true);
     return;
   }
-  
+  const plIds = _getPlaylistTrackIds();
+  if (plIds && plIds.length > 0) {
+    const currentTrackId = tracks[currentIndex]?.id;
+    let nextId;
+    if (isShuffle) {
+      if (_plShufflePool.length === 0) {
+        _plShufflePool = _buildPlShufflePool(plIds, currentTrackId);
+      }
+      nextId = _plShufflePool.shift();
+      if (!nextId) nextId = plIds[0];
+    } else {
+      const pos = plIds.indexOf(currentTrackId);
+      const nextPos = pos < 0 || pos >= plIds.length - 1 ? 0 : pos + 1;
+      nextId = plIds[nextPos];
+    }
+    const idx = tracks.findIndex(t => t.id === nextId);
+    if (idx >= 0) { selectTrack(idx, true, true); return; }
+  }
   const baseIndex = _preQueueIndex >= 0 ? _preQueueIndex : currentIndex;
   _preQueueIndex = -1;
   let idx;
@@ -1132,9 +1160,21 @@ function shuffleNext() {
   return _shufflePool.shift();
 }
 
+let _plShufflePool = [];
+
+function _buildPlShufflePool(plIds, currentTrackId) {
+  const pool = plIds.filter(id => id !== currentTrackId);
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [pool[i], pool[j]] = [pool[j], pool[i]];
+  }
+  return pool;
+}
+
 function toggleShuffle() {
   isShuffle = !isShuffle;
   _shufflePool = [];
+  _plShufflePool = [];
   document.getElementById('btn-shuffle').classList.toggle('active', isShuffle);
 }
 
@@ -1411,6 +1451,7 @@ async function lfmStartAuth() {
     const authUrl = `https://www.last.fm/api/auth/?api_key=${encodeURIComponent(key)}&token=${encodeURIComponent(token)}`;
     document.getElementById('lfm-auth-link').href = authUrl;
     document.getElementById('lfm-modal-status').textContent = '';
+    document.getElementById('setup-overlay').classList.add('hidden');
     document.getElementById('lfm-auth-modal').classList.remove('hidden');
     
     const tip = document.getElementById('lfm-warn-tooltip');
@@ -2175,6 +2216,7 @@ async function lfmStartAuthFromSettings(key, sec) {
     const authUrl = `https://www.last.fm/api/auth/?api_key=${encodeURIComponent(key)}&token=${encodeURIComponent(token)}`;
     document.getElementById('lfm-auth-link').href = authUrl;
     document.getElementById('lfm-modal-status').textContent = '';
+    document.getElementById('setup-overlay').classList.add('hidden');
     document.getElementById('lfm-auth-modal').classList.remove('hidden');
   } catch(e) {
     toast('Last.fm: ' + e.message);
@@ -2361,7 +2403,7 @@ function setLibraryView(view) {
 
   const animTarget = isLib ? libEl : plEl;
   animTarget.classList.remove('section-enter');
-  void animTarget.offsetWidth; 
+  void animTarget.offsetWidth; // reflow para reiniciar animação
   animTarget.classList.add('section-enter');
 
   const label = document.getElementById('main-action-label');
@@ -2601,10 +2643,11 @@ function renderPlaylistTracks() {
   listEl.innerHTML = pts.map((pt, vi) => {
     const t = tracks.find(tr => tr.id === pt.trackId);
     if (!t) return '';
+    const isActive = currentIndex >= 0 && tracks[currentIndex]?.id === t.id;
     const coverHtml = (t.coverUrl || t.cover)
       ? `<img class="track-cover" src="${t.coverUrl || t.cover}" alt="">`
       : `<div class="track-cover-placeholder"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg></div>`;
-    return `<div class="pl-track-item" data-ptid="${escHtml(pt.id)}" data-vi="${vi}" onmousedown="plTrackMouseDown(event,'${escHtml(pt.id)}',${vi})" onclick="selectTrackById('${escHtml(t.id)}')" oncontextmenu="openCtxPlaylistTrackMenu(event,'${escHtml(pt.id)}')">
+    return `<div class="pl-track-item${isActive ? ' active' : ''}" data-ptid="${escHtml(pt.id)}" data-vi="${vi}" onmousedown="plTrackMouseDown(event,'${escHtml(pt.id)}',${vi})" onclick="selectTrackById('${escHtml(t.id)}')" oncontextmenu="openCtxPlaylistTrackMenu(event,'${escHtml(pt.id)}')">
       <div class="pl-track-drag-handle" onmousedown="plDragHandleDown(event,'${escHtml(pt.id)}',${vi})" onclick="event.stopPropagation()">
         <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/></svg>
       </div>
@@ -2624,9 +2667,22 @@ function applyPlaylistSort() {
   renderPlaylistTracks();
 }
 
+let _playlistContext = null; // ID da playlist ativa para navegação
+
 function selectTrackById(trackId) {
   const idx = tracks.findIndex(t => t.id === trackId);
-  if (idx >= 0) selectTrack(idx);
+  if (idx < 0) return;
+  _playlistContext = currentPlaylistId || null;
+  selectTrack(idx, false, true);
+}
+
+function _getPlaylistTrackIds() {
+  if (!_playlistContext) return null;
+  const pts = playlistTracks
+    .filter(pt => pt.playlistId === _playlistContext)
+    .slice()
+    .sort((a, b) => (a.order || 0) - (b.order || 0));
+  return pts.map(pt => pt.trackId);
 }
 
 function openCreatePlaylistModal() {
@@ -2846,7 +2902,7 @@ function closeCtxPlaylistMenu() {
   _ctxPlaylistId = null;
 }
 
-let _plEditPhotoDataURL = undefined; 
+let _plEditPhotoDataURL = undefined; // undefined = sem alteração, null = removida, string = nova
 let _editingPlaylistId = null;
 
 function ctxEditPlaylist() {

@@ -1362,6 +1362,8 @@
     color: #e05555;
   }
   .input-group input.input-error::placeholder { color: #e05555; opacity: 1; }
+  .input-group input.input-error:disabled { text-align: center; }
+  .input-group input.input-error-centered { text-align: center; caret-color: transparent; }
 
   
   #reset-confirm-popup {
@@ -1829,6 +1831,12 @@
 .atp-item { transition: none; }
 .atp-item:hover { background: none; border-bottom-color: var(--border); }
 
+.pl-track-item.active {
+  background: var(--track-active-bg);
+  border-color: var(--track-active-border);
+  box-shadow: 0 2px 16px var(--track-active-glow), inset 0 1px 0 rgba(255,255,255,0.06);
+}
+.pl-track-item.active .track-name { color: var(--track-active-color); }
 .pl-track-item {
   display: flex;
   align-items: center;
