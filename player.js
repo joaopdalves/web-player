@@ -1669,7 +1669,7 @@ async function lfmGetSession() {
     document.getElementById('lfm-auth-modal').classList.add('hidden');
     document.getElementById('setup-overlay').classList.add('hidden');
     lfmUpdateStatusUI();
-    toast(`Last.fm conectado como ${lfmUsername}! 🔴`);
+    toast(`Last.fm conectado como ${lfmUsername}! `);
   } catch (e) {
     status.textContent = '✗ ' + e.message;
     btn.disabled = false;
@@ -4022,7 +4022,7 @@ async function renderStatsCharts() {
   while (cells.length < total) cells.push(null);
   const maxW = Math.min(520, window.innerWidth - 60);
   const cellSizePx = Math.max(44, Math.min(Math.floor(maxW / _chartSize), _chartSize === 3 ? 160 : _chartSize === 5 ? 96 : 52));
-  area.innerHTML = `<div class="stats-chart-grid" style="grid-template-columns: repeat(${_chartSize}, ${cellSizePx}px);">
+  area.innerHTML = `<div class="stats-chart-grid${_chartSize === 10 ? ' stats-chart-grid--10' : ''}" style="grid-template-columns: repeat(${_chartSize}, ${cellSizePx}px);">
     ${cells.map(c => {
     if (!c) return `<div class="stats-chart-cell" style="width:${cellSizePx}px;height:${cellSizePx}px;"><div class="stats-chart-cell-ph"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/></svg></div></div>`;
     const imgHtml = c.cover ? `<img src="${escHtml(c.cover)}" alt="" style="width:${cellSizePx}px;height:${cellSizePx}px;object-fit:cover;display:block;">` : `<div class="stats-chart-cell-ph" style="width:${cellSizePx}px;height:${cellSizePx}px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/></svg></div>`;
