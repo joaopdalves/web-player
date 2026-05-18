@@ -321,6 +321,64 @@ function masterResetConfirmed() {
   document.getElementById('master-confirm').value = '';
   setTimeout(() => document.getElementById('master-input').focus(), 100);
 }
+function _setupLeftClickOnly() {
+  function _applyPressedControl(el) {
+    el.addEventListener('pointerdown', e => {
+      if (e.button !== 0) {
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
+      el.classList.add('pressed');
+    });
+    el.addEventListener('pointerup', () => el.classList.remove('pressed'));
+    el.addEventListener('pointerleave', () => el.classList.remove('pressed'));
+    el.addEventListener('pointercancel', () => el.classList.remove('pressed'));
+    el.addEventListener('contextmenu', e => {
+      e.preventDefault();
+      e.stopPropagation();
+    });
+  }
+  const delegatedContainers = [
+    document.getElementById('player-bar'),
+    document.getElementById('queue-panel'),
+    document.getElementById('settings-wrap'),
+    document.getElementById('stats-wrap'),
+    document.getElementById('sidebar'),
+    document.getElementById('master-overlay'),
+    document.getElementById('setup-overlay'),
+    document.getElementById('lfm-auth-modal')
+  ];
+  delegatedContainers.forEach(container => {
+    if (!container) return;
+    container.addEventListener('contextmenu', e => {
+      e.preventDefault();
+      e.stopPropagation();
+    });
+    container.addEventListener('pointerdown', e => {
+      if (e.button !== 0) {
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
+      const btn = e.target.closest('button, .ctrl-btn, .add-btn, .lib-nav-btn');
+      if (btn) btn.classList.add('pressed');
+    });
+    container.addEventListener('pointerup', e => {
+      container.querySelectorAll('.pressed').forEach(el => el.classList.remove('pressed'));
+    });
+    container.addEventListener('pointerleave', e => {
+      container.querySelectorAll('.pressed').forEach(el => el.classList.remove('pressed'));
+    });
+    container.addEventListener('pointercancel', e => {
+      container.querySelectorAll('.pressed').forEach(el => el.classList.remove('pressed'));
+    });
+  });
+  ['btn-stats', 'btn-gear'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) _applyPressedControl(el);
+  });
+}
 async function init() {
   await masterPrompt();
   const setupDone = localStorage.getItem('_setup_done');
@@ -336,6 +394,7 @@ async function init() {
   setupVirtualScroll();
   setupAudioListeners();
   setupProgressListeners();
+  _setupLeftClickOnly();
   lfmInit();
   const appEl = document.getElementById('app');
   const doRender = () => {
@@ -1146,7 +1205,7 @@ function escHtml(s) {
 function selectTrack(i, fromQueue = false, keepPlaylistContext = false) {
   if (i < 0 || i >= tracks.length) return;
   if (!fromQueue) _preQueueIndex = -1;
-  if (!keepPlaylistContext) _playlistContext = null;
+  if (!fromQueue && !keepPlaylistContext) _playlistContext = null;
   currentIndex = i;
   const _transEl = document.getElementById('track-transition');
   _transEl.classList.remove('flash');
@@ -1256,7 +1315,9 @@ function nextTrack() {
   }
   const plIds = _getPlaylistTrackIds();
   if (plIds && plIds.length > 0) {
-    const currentTrackId = tracks[currentIndex]?.id;
+    const refIndex = _preQueueIndex >= 0 ? _preQueueIndex : currentIndex;
+    const currentTrackId = tracks[refIndex]?.id;
+    _preQueueIndex = -1;
     let nextId;
     if (isShuffle) {
       if (_plShufflePool.length === 0) {
@@ -3447,6 +3508,31 @@ function _onPlDragUp(e) {
   _plDragSrc = -1;
   renderPlaylistTracks();
 }
+(function _setupOverlayRightClickGuard() {
+  const overlayIds = ['master-overlay', 'setup-overlay', 'lfm-auth-modal'];
+  overlayIds.forEach(id => {
+    const container = document.getElementById(id);
+    if (!container) return;
+    container.addEventListener('contextmenu', e => {
+      e.preventDefault();
+      e.stopPropagation();
+    });
+    container.addEventListener('pointerdown', e => {
+      if (e.button !== 0) {
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
+      const btn = e.target.closest('button, .btn-primary, .setup-tab, .reset-popup-confirm, .reset-popup-cancel');
+      if (btn) btn.classList.add('pressed');
+    });
+    ['pointerup', 'pointerleave', 'pointercancel'].forEach(evt => {
+      container.addEventListener(evt, () => {
+        container.querySelectorAll('.pressed').forEach(el => el.classList.remove('pressed'));
+      });
+    });
+  });
+})();
 init();
 window._restoreCursor = null;
 (function () {

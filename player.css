@@ -62,6 +62,12 @@
   input[type="range"]::-moz-range-thumb {
     cursor: url("cursor/cursor.png") 2 2, none !important;
   }
+  button:focus,
+  button:focus-visible {
+    outline: none;
+    box-shadow: none;
+  }
+
 
   html, body {
     height: 100%;
@@ -185,7 +191,8 @@
     pointer-events: none;
   }
   .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 26px var(--accent-glow), inset 0 1px 0 rgba(255,255,255,0.28); }
-  .btn-primary:active { transform: translateY(1px); }
+  .btn-primary:active { }
+  .btn-primary.pressed { transform: translateY(1px); }
 
   
   #app {
@@ -292,7 +299,8 @@
     box-shadow: 0 4px 20px var(--accent-glow), inset 0 1px 0 rgba(255,255,255,0.18);
     transform: translateY(-1px);
   }
-  .add-btn:active { transform: translateY(0); }
+  .add-btn:active { }
+  .add-btn.pressed { transform: translateY(0); }
   .add-btn svg { flex-shrink: 0; }
 
   
@@ -695,7 +703,8 @@
     box-shadow: 0 4px 16px var(--ctrl-hover-glow), inset 0 1px 0 rgba(255,255,255,0.1);
     transform: translateY(-1px);
   }
-  .ctrl-btn:active { transform: translateY(1px) scale(0.96); }
+  .ctrl-btn:active { }
+  .ctrl-btn.pressed { transform: translateY(1px) scale(0.96); }
   .ctrl-btn.active {
     background: var(--accent-dim);
     color: var(--track-active-color);
@@ -2164,7 +2173,8 @@
   transition: all var(--transition), transform 0.15s ease;
 }
 .lib-nav-btn:hover { transform: translateY(-1px); }
-.lib-nav-btn:active { transform: translateY(0); }
+.lib-nav-btn:active { }
+.lib-nav-btn.pressed { transform: translateY(0); }
 
 .add-btn {
   transition: all var(--transition), transform 0.18s cubic-bezier(0.34,1.4,0.64,1);
