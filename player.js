@@ -24,16 +24,23 @@ let vTotalItems = 0;
 let vFilteredCache = [];
 let _shufflePool = [];
 const _pwStore = (() => {
-  let _v = null;
+  let _key = null;
+  let _salt = null;
   return {
-    set(v) {
-      _v = v;
+    async derive(password) {
+      const keyMaterial = await crypto.subtle.importKey(
+        'raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveKey']
+      );
+      // Store a random salt per session to derive a wrapping key
+      _salt = crypto.getRandomValues(new Uint8Array(16));
+      _key = keyMaterial;
     },
     get() {
-      return _v;
+      return _key;
     },
     clear() {
-      _v = null;
+      _key = null;
+      _salt = null;
     }
   };
 })();
@@ -65,8 +72,13 @@ function _getFirstEncryptedKey() {
   const found = ['lfm_key', 'lfm_secret', 'lfm_session', 'lfm_user', '_sentinel'].find(k => !!localStorage.getItem('enc_' + k));
   return found ? 'enc_' + found : null;
 }
-async function _deriveKey(password, salt) {
-  const keyMaterial = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveKey']);
+async function _deriveKey(passwordOrMaterial, salt) {
+  let keyMaterial;
+  if (typeof passwordOrMaterial === 'string') {
+    keyMaterial = await crypto.subtle.importKey('raw', new TextEncoder().encode(passwordOrMaterial), 'PBKDF2', false, ['deriveKey']);
+  } else {
+    keyMaterial = passwordOrMaterial;
+  }
   return crypto.subtle.deriveKey({
     name: 'PBKDF2',
     salt,
@@ -225,6 +237,8 @@ async function masterConfirm() {
         name: 'AES-GCM',
         iv: new Uint8Array(raw.iv)
       }, testKey, new Uint8Array(raw.data));
+      // Password is correct — derive and store key material, discard password
+      await _pwStore.derive(pw);
       _masterAttempts = 0;
       _masterLockedUntil = 0;
       localStorage.removeItem('_masterAttempts');
@@ -256,7 +270,7 @@ async function masterConfirm() {
       return;
     }
   }
-  _pwStore.set(pw);
+  await _pwStore.derive(pw);
   if (!hasData) {
     saveSecret('_sentinel', '1').catch(() => {});
   }
