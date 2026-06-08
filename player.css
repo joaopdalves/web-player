@@ -89,6 +89,8 @@
     animation: fadeIn 0.4s ease;
   }
   #setup-overlay.hidden { display: none; }
+  #setup-overlay.modal--closing { animation: modalOut 0.22s cubic-bezier(0.4, 0, 1, 1) forwards; }
+  #setup-overlay.modal--closing .setup-card { animation: modalCardOut 0.22s cubic-bezier(0.4, 0, 1, 1) forwards; }
 
   .setup-card {
     background: var(--surface);
@@ -997,9 +999,10 @@
     font-size:13px; transition:background var(--transition), color var(--transition), border-color var(--transition);
     font-weight:500; display:flex; align-items:center; justify-content:center; gap:7px;
   }
-  .setup-tab.active { background:var(--accent-dim); border-color:rgba(255,255,255,0.28); color:var(--accent); }
+  .setup-tab.active { background:var(--accent-dim); border-color:rgba(255,255,255,0.28); color:var(--accent); cursor:default; pointer-events:none; }
   .setup-panel { display:none; }
-  .setup-panel.active { display:block; animation: setupPanelIn 0.2s cubic-bezier(0.34,1.4,0.64,1) forwards; }
+  .setup-panel.active { display:block; }
+  .setup-panel.active.setup-panel--animate { animation: setupPanelIn 0.2s cubic-bezier(0.34,1.4,0.64,1) forwards; }
   @keyframes setupPanelIn { from { opacity:0; transform:translateY(6px) scale(0.98); } to { opacity:1; transform:translateY(0) scale(1); } }
 
   .setup-warn-tooltip {
@@ -1036,6 +1039,8 @@
     z-index:900; animation:fadeIn 0.2s ease;
   }
   #lfm-auth-modal.hidden { display:none; }
+  #lfm-auth-modal.modal--closing { animation: modalOut 0.22s cubic-bezier(0.4, 0, 1, 1) forwards; }
+  #lfm-auth-modal.modal--closing .lfm-modal-card { animation: modalCardOut 0.22s cubic-bezier(0.4, 0, 1, 1) forwards; }
   .lfm-modal-card {
     background:var(--surface); border:1px solid var(--border); border-radius:16px;
     padding:28px; width:90%; max-width:420px;
@@ -1398,11 +1403,11 @@
   .master-error { display: none; }
   .input-group input.input-error {
     border-color: #e05555;
-    color: #e05555;
   }
-  .input-group input.input-error::placeholder { color: #e05555; opacity: 1; }
+  .input-group input.input-error::placeholder { color: #e05555; opacity: 1; text-align: center; }
+  .input-group input.input-error:placeholder-shown { text-align: center; }
+  .input-group input.input-error:not(:placeholder-shown) { text-align: left; }
   .input-group input.input-error:disabled { text-align: center; }
-  .input-group input.input-error-centered { text-align: center; caret-color: transparent; }
 
   
   #reset-confirm-popup {

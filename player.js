@@ -154,7 +154,6 @@ function _masterErr(msg, targetId = 'master-input', centered = false) {
   input.value = '';
   input.placeholder = msg;
   input.classList.add('input-error');
-  if (centered) input.classList.add('input-error-centered');
   input.focus();
 }
 function _masterErrClear() {
@@ -176,6 +175,16 @@ function masterPrompt() {
     _masterErrClear();
     document.getElementById('master-input').value = '';
     document.getElementById('master-confirm').value = '';
+    const masterInputEl = document.getElementById('master-input');
+    if (masterInputEl && !masterInputEl._warnClearBound) {
+      masterInputEl._warnClearBound = true;
+      masterInputEl.addEventListener('input', function() {
+        const now = Date.now();
+        if (_masterLockedUntil <= now) {
+          masterInputEl.classList.remove('input-error', 'input-error-centered');
+        }
+      });
+    }
     if (hasData && _masterAttempts >= 3) {
       document.getElementById('master-input').disabled = true;
       const btn = document.getElementById('master-btn');
@@ -189,13 +198,37 @@ function masterPrompt() {
       btn.onclick = masterReset;
       _masterErr('Você esgotou as suas tentativas.', 'master-input', true);
     } else {
-      document.getElementById('master-input').disabled = false;
+      const input = document.getElementById('master-input');
       const btn = document.getElementById('master-btn');
-      btn.disabled = false;
       btn.style.cssText = '';
       btn.className = 'btn-primary';
       btn.onclick = masterConfirm;
-      setTimeout(() => document.getElementById('master-input').focus(), 100);
+      const now = Date.now();
+      if (hasData && _masterLockedUntil > now) {
+        let remaining = Math.ceil((_masterLockedUntil - now) / 1000);
+        input.disabled = true;
+        btn.disabled = true;
+        input.value = '';
+        input.placeholder = `Aguarde ${remaining}s antes de tentar novamente.`;
+        input.classList.add('input-error');
+        const ticker = setInterval(() => {
+          remaining--;
+          if (remaining <= 0) {
+            clearInterval(ticker);
+            input.disabled = false;
+            btn.disabled = false;
+            input.classList.remove('input-error');
+            input.placeholder = _masterPlaceholders['master-input'];
+            input.focus();
+          } else {
+            input.placeholder = `Aguarde ${remaining}s antes de tentar novamente.`;
+          }
+        }, 1000);
+      } else {
+        input.disabled = false;
+        btn.disabled = false;
+        setTimeout(() => input.focus(), 100);
+      }
     }
   });
 }
@@ -246,13 +279,17 @@ async function masterConfirm() {
     } catch {
       _masterAttempts++;
       const delays = [0, 5000, 15000];
-      _masterLockedUntil = Date.now() + (delays[_masterAttempts - 1] || 30000);
+      const waitMs = delays[_masterAttempts - 1] !== undefined ? delays[_masterAttempts - 1] : 15000;
+      _masterLockedUntil = Date.now() + waitMs;
       localStorage.setItem('_masterAttempts', String(_masterAttempts));
       localStorage.setItem('_masterLockedUntil', String(_masterLockedUntil));
       const restantes = 3 - _masterAttempts;
+      const input = document.getElementById('master-input');
       if (_masterAttempts >= 3) {
-        _masterErr('Você esgotou as suas tentativas.', 'master-input', true);
-        document.getElementById('master-input').disabled = true;
+        input.disabled = true;
+        input.value = '';
+        input.placeholder = 'Você esgotou as suas tentativas.';
+        input.classList.add('input-error');
         btn.textContent = 'Apagar dados e recomeçar';
         btn.disabled = false;
         btn.style.background = 'none';
@@ -261,9 +298,32 @@ async function masterConfirm() {
         btn.style.boxShadow = 'none';
         btn.style.textShadow = 'none';
         btn.onclick = masterReset;
+      } else if (waitMs > 0) {
+        input.disabled = true;
+        btn.disabled = true;
+        btn.textContent = 'Entrar';
+        input.value = '';
+        let remaining = Math.ceil(waitMs / 1000);
+        input.placeholder = `Aguarde ${remaining}s antes de tentar novamente.`;
+        input.classList.add('input-error');
+        const ticker = setInterval(() => {
+          remaining--;
+          if (remaining <= 0) {
+            clearInterval(ticker);
+            input.disabled = false;
+            btn.disabled = false;
+            input.classList.remove('input-error');
+            input.placeholder = _masterPlaceholders['master-input'];
+            input.focus();
+          } else {
+            input.placeholder = `Aguarde ${remaining}s antes de tentar novamente.`;
+          }
+        }, 1000);
       } else {
-        const waitSec = Math.ceil((delays[_masterAttempts - 1] || 0) / 1000);
-        _masterErr(`Senha incorreta. ${restantes} tentativa${restantes > 1 ? 's' : ''} restante${restantes > 1 ? 's' : ''}.`, 'master-input', true);
+        input.value = '';
+        input.placeholder = `Senha incorreta. ${restantes} tentativa${restantes > 1 ? 's' : ''} restante${restantes > 1 ? 's' : ''}.`;
+        input.classList.add('input-error');
+        input.focus();
         btn.textContent = 'Entrar';
         btn.disabled = false;
       }
@@ -396,6 +456,8 @@ function _setupLeftClickOnly() {
 async function init() {
   await masterPrompt();
   const setupDone = localStorage.getItem('_setup_done');
+  const panel = document.getElementById('panel-lastfm');
+  if (panel) panel.classList.add('active');
   if (!setupDone) {
     localStorage.setItem('_setup_done', '1');
     document.getElementById('setup-overlay').style.visibility = 'visible';
@@ -431,12 +493,12 @@ function switchTab(tab) {
     const panel = document.getElementById('panel-' + t);
     if (!panel) return;
     if (t === tab) {
+      panel.classList.remove('setup-panel--animate');
       panel.classList.add('active');
-      panel.style.animation = 'none';
-      panel.offsetHeight;
-      panel.style.animation = '';
+      void panel.offsetWidth;
+      panel.classList.add('setup-panel--animate');
     } else {
-      panel.classList.remove('active');
+      panel.classList.remove('active', 'setup-panel--animate');
     }
   });
 }
@@ -444,8 +506,22 @@ function openSetupOverlay(tab) {
   const overlay = document.getElementById('setup-overlay');
   overlay.style.visibility = 'visible';
   overlay.classList.remove('hidden');
-  switchTab('lastfm');
+  // Activate panel without animation
+  const panel = document.getElementById('panel-lastfm');
+  if (panel) {
+    panel.classList.remove('setup-panel--animate');
+    panel.classList.add('active');
+  }
   document.getElementById('settings-panel').classList.add('hidden');
+}
+function closeSetupOverlay() {
+  const overlay = document.getElementById('setup-overlay');
+  if (overlay.classList.contains('hidden') || overlay.classList.contains('modal--closing')) return;
+  overlay.classList.add('modal--closing');
+  setTimeout(() => {
+    overlay.classList.remove('modal--closing');
+    overlay.classList.add('hidden');
+  }, 220);
 
 }
 function _showSetupWarn(tooltipId, textId, msg) {
@@ -471,7 +547,7 @@ function saveCredentials() {
     try {
       if (lfmKey) await saveSecret('lfm_key', lfmKey);
       if (lfmSec) await saveSecret('lfm_secret', lfmSec);
-      document.getElementById('setup-overlay').classList.add('hidden');
+      closeSetupOverlay();
       lfmInit();
       toast('Configurações salvas!');
     } catch (e) {
@@ -1551,7 +1627,12 @@ function lfmUpdateStatusUI() {
 }
 function lfmOpenSettings() {
   document.getElementById('setup-overlay').classList.remove('hidden');
-  switchTab('lastfm');
+  // Activate panel without animation
+  const panel = document.getElementById('panel-lastfm');
+  if (panel) {
+    panel.classList.remove('setup-panel--animate');
+    panel.classList.add('active');
+  }
   (async () => {
     document.getElementById('lfm-api-key').value = (await loadSecret('lfm_key')) || '';
     document.getElementById('lfm-api-secret').value = (await loadSecret('lfm_secret')) || '';
@@ -1592,8 +1673,10 @@ async function lfmStartAuth() {
     const authUrl = `https://www.last.fm/api/auth/?api_key=${encodeURIComponent(key)}&token=${encodeURIComponent(token)}`;
     document.getElementById('lfm-auth-link').href = authUrl;
     document.getElementById('lfm-modal-status').textContent = '';
-    document.getElementById('setup-overlay').classList.add('hidden');
-    document.getElementById('lfm-auth-modal').classList.remove('hidden');
+    closeSetupOverlay();
+    setTimeout(() => {
+      document.getElementById('lfm-auth-modal').classList.remove('hidden');
+    }, 220);
     const tip = document.getElementById('lfm-warn-tooltip');
     if (tip) {
       tip.classList.remove('visible');
@@ -1614,6 +1697,15 @@ async function lfmGetToken() {
   const data = await res.json();
   if (data.error) throw new Error(data.message || 'Erro ao obter token');
   return data.token;
+}
+function closeLfmAuthModal() {
+  const modal = document.getElementById('lfm-auth-modal');
+  if (modal.classList.contains('hidden') || modal.classList.contains('modal--closing')) return;
+  modal.classList.add('modal--closing');
+  setTimeout(() => {
+    modal.classList.remove('modal--closing');
+    modal.classList.add('hidden');
+  }, 220);
 }
 async function lfmGetSession() {
   const btn = document.getElementById('lfm-session-btn');
@@ -1644,8 +1736,8 @@ async function lfmGetSession() {
     await saveSecret('lfm_session', lfmSessionKey);
     await saveSecret('lfm_user', lfmUsername);
     localStorage.removeItem('lfm_pending_token');
-    document.getElementById('lfm-auth-modal').classList.add('hidden');
-    document.getElementById('setup-overlay').classList.add('hidden');
+    closeLfmAuthModal();
+    closeSetupOverlay();
     lfmUpdateStatusUI();
     toast(`Last.fm conectado como ${lfmUsername}! `);
   } catch (e) {
@@ -2457,6 +2549,15 @@ function toggleSettingsPanel(forceOpen) {
 }
 function closeSettingsPanel() {
   document.getElementById('settings-panel').classList.add('hidden');
+}
+function closeSetupOverlay() {
+  const overlay = document.getElementById('setup-overlay');
+  if (overlay.classList.contains('hidden') || overlay.classList.contains('modal--closing')) return;
+  overlay.classList.add('modal--closing');
+  setTimeout(() => {
+    overlay.classList.remove('modal--closing');
+    overlay.classList.add('hidden');
+  }, 220);
   document.getElementById('btn-gear').classList.remove('active');
 }
 
@@ -2489,8 +2590,10 @@ async function lfmStartAuthFromSettings(key, sec) {
     const authUrl = `https://www.last.fm/api/auth/?api_key=${encodeURIComponent(key)}&token=${encodeURIComponent(token)}`;
     document.getElementById('lfm-auth-link').href = authUrl;
     document.getElementById('lfm-modal-status').textContent = '';
-    document.getElementById('setup-overlay').classList.add('hidden');
-    document.getElementById('lfm-auth-modal').classList.remove('hidden');
+    closeSetupOverlay();
+    setTimeout(() => {
+      document.getElementById('lfm-auth-modal').classList.remove('hidden');
+    }, 220);
   } catch (e) {
     toast('Last.fm: ' + e.message);
   }

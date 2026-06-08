@@ -38,11 +38,11 @@
 <div id="setup-overlay" style="visibility:hidden;">
   <div class="setup-card">
     <div class="setup-tabs">
-      <button class="setup-tab active" id="tab-lastfm" onclick="switchTab('lastfm')"><img src="https://cdn.brandfetch.io/id-7gRYkpj/w/400/h/400/theme/dark/icon.jpeg?c=1bxid64Mup7aczewSAYMX&t=1667799583371" width="14" height="14" style="border-radius:3px;flex-shrink:0;vertical-align:middle"> Last.fm</button>
+      <button class="setup-tab active" id="tab-lastfm"><img src="https://cdn.brandfetch.io/id-7gRYkpj/w/400/h/400/theme/dark/icon.jpeg?c=1bxid64Mup7aczewSAYMX&t=1667799583371" width="14" height="14" style="border-radius:3px;flex-shrink:0;vertical-align:middle"> Last.fm</button>
     </div>
 
     
-    <div class="setup-panel active" id="panel-lastfm">
+    <div class="setup-panel" id="panel-lastfm">
       <h2>Configurar Last.fm</h2>
       <p class="subtitle">Conecte sua conta do Last.fm para registrar scrobbles automaticamente enquanto você ouve.</p>
       <div class="setup-steps">
@@ -78,7 +78,7 @@
     <div class="lfm-step"><span class="lfm-step-n">3.</span><p>Após autorizar, volte aqui e clique em <strong>"Já autorizei"</strong>.</p></div>
     <div id="lfm-modal-status" style="font-size:12px; color:var(--text-muted); min-height:16px; margin-bottom:14px;"></div>
     <div class="lfm-modal-actions">
-      <button class="btn-cancel" onclick="document.getElementById('lfm-auth-modal').classList.add('hidden')">Cancelar</button>
+      <button class="btn-cancel" onclick="closeLfmAuthModal()">Cancelar</button>
       <button class="btn-confirm" onclick="lfmGetSession()" id="lfm-session-btn" style="background:linear-gradient(180deg,rgba(213,16,7,0.92),rgba(160,10,5,0.97) 60%,rgba(213,16,7,0.85));border-color:rgba(255,80,80,0.4);">Já autorizei ✓</button>
     </div>
   </div>
