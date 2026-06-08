@@ -1406,8 +1406,8 @@
     border-color: #e05555;
   }
   .input-group input.input-error::placeholder { color: #e05555; opacity: 1; text-align: center; }
-  .input-group input.input-error:placeholder-shown { text-align: center; }
-  .input-group input.input-error:not(:placeholder-shown) { text-align: left; }
+  .input-group input.input-error:placeholder-shown { text-align: center; caret-color: transparent; }
+  .input-group input.input-error:not(:placeholder-shown) { text-align: left; caret-color: auto; }
   .input-group input.input-error:disabled { text-align: center; }
 
   
