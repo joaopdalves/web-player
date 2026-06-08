@@ -13,7 +13,7 @@
   <div class="master-card">
     <span class="master-icon">🔐</span>
     <h2 id="master-title">Criar senha</h2>
-    <p class="master-sub" id="master-sub">Esta senha criptografa suas credenciais do Spotify e Last.fm armazenadas localmente. Não é possível recuperá-la — guarde bem.</p>
+    <p class="master-sub" id="master-sub">Esta senha criptografa suas credenciais do Last.fm armazenadas localmente. Não é possível recuperá-la — guarde bem.</p>
     <div class="input-group">
       <label id="master-label">Senha</label>
       <input type="password" id="master-input" placeholder="Digite uma senha" onkeydown="if(event.key==='Enter') masterConfirm()">
@@ -25,7 +25,7 @@
 
     <div style="position:relative;">
       <div id="reset-confirm-popup">
-        <p>Isso vai apagar permanentemente suas credenciais do <strong>Spotify</strong> e <strong>Last.fm</strong>. Você precisará configurá-las novamente.</p>
+        <p>Isso vai apagar permanentemente suas credenciais do <strong>Last.fm</strong>. Você precisará configurá-las novamente.</p>
         <div class="reset-popup-actions">
           <button class="reset-popup-confirm" onclick="masterResetConfirmed()">Apagar tudo</button>
         </div>
@@ -38,39 +38,11 @@
 <div id="setup-overlay" style="visibility:hidden;">
   <div class="setup-card">
     <div class="setup-tabs">
-      <button class="setup-tab active" id="tab-spotify" onclick="switchTab('spotify')"><svg width="14" height="14" viewBox="0 0 24 24" fill="#1DB954" style="flex-shrink:0"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.516 17.323a.75.75 0 0 1-1.031.25c-2.824-1.724-6.376-2.114-10.563-1.157a.75.75 0 0 1-.334-1.463c4.583-1.048 8.514-.597 11.678 1.339a.75.75 0 0 1 .25 1.031zm1.47-3.268a.937.937 0 0 1-1.288.308c-3.232-1.986-8.158-2.562-11.977-1.402a.937.937 0 1 1-.543-1.794c4.366-1.323 9.788-.682 13.5 1.6a.937.937 0 0 1 .308 1.288zm.127-3.405C15.608 8.394 9.485 8.194 6.027 9.23a1.125 1.125 0 1 1-.652-2.152c3.987-1.208 10.62-.975 14.81 1.595a1.125 1.125 0 0 1-1.072 1.977z"/></svg> Spotify</button>
-      <button class="setup-tab" id="tab-lastfm" onclick="switchTab('lastfm')"><img src="https://cdn.brandfetch.io/id-7gRYkpj/w/400/h/400/theme/dark/icon.jpeg?c=1bxid64Mup7aczewSAYMX&t=1667799583371" width="14" height="14" style="border-radius:3px;flex-shrink:0;vertical-align:middle"> Last.fm</button>
+      <button class="setup-tab active" id="tab-lastfm" onclick="switchTab('lastfm')"><img src="https://cdn.brandfetch.io/id-7gRYkpj/w/400/h/400/theme/dark/icon.jpeg?c=1bxid64Mup7aczewSAYMX&t=1667799583371" width="14" height="14" style="border-radius:3px;flex-shrink:0;vertical-align:middle"> Last.fm</button>
     </div>
 
     
-    <div class="setup-panel active" id="panel-spotify">
-      <h2>Configurar API do Spotify</h2>
-      <p class="subtitle">Para buscar capas e informações das músicas, você precisa de credenciais gratuitas do Spotify.</p>
-      <div class="setup-steps">
-        <p data-n="1.">Acesse <a href="https://developer.spotify.com/dashboard" target="_blank">developer.spotify.com/dashboard</a> e faça login.</p>
-        <p data-n="2.">Clique em <strong>"Create app"</strong>, preencha qualquer nome e descrição.</p>
-        <p data-n="3.">No campo <strong>Redirect URI</strong>, coloque: <code>http://localhost</code></p>
-        <p data-n="4.">Após criar, abra o app e clique em <strong>"Settings"</strong> para ver seu Client ID e Client Secret.</p>
-        <p data-n="5.">Cole os valores abaixo e pronto — eles ficam salvos no seu navegador.</p>
-      </div>
-      <div class="input-group">
-        <label>Client ID</label>
-        <input type="text" id="setup-client-id" placeholder="Cole seu Client ID aqui">
-      </div>
-      <div class="input-group">
-        <label>Client Secret</label>
-        <input type="password" id="setup-client-secret" placeholder="Cole seu Client Secret aqui">
-      </div>
-      <div class="setup-warn-tooltip hidden" id="sp-warn-tooltip">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-        <span id="sp-warn-text">Preencha o Client ID e o Client Secret.</span>
-      </div>
-      <button class="btn-primary" onclick="saveSpotifyCredentials()" style="margin-bottom:10px;">Salvar e começar</button>
-      <button class="btn-primary" onclick="skipSpotifyCredentials()" style="background:rgba(255,255,255,0.06); color:var(--text-dim); border:1px solid rgba(255,255,255,0.09); box-shadow:none; text-shadow:none;">Pular — configurar depois</button>
-    </div>
-
-    
-    <div class="setup-panel" id="panel-lastfm">
+    <div class="setup-panel active" id="panel-lastfm">
       <h2>Configurar Last.fm</h2>
       <p class="subtitle">Conecte sua conta do Last.fm para registrar scrobbles automaticamente enquanto você ouve.</p>
       <div class="setup-steps">
@@ -296,12 +268,7 @@
     </svg>
   </button>
   <div id="settings-panel" class="hidden">
-    <div class="settings-section">
-      <div class="settings-section-title">Spotify API <button class="settings-help-btn" onclick="openSetupOverlay('spotify')" data-tip="Como configurar">?</button></div>
-      <div class="settings-field"><label>Client ID</label><input type="text" id="cfg-sp-cid" placeholder="Cole seu Client ID"></div>
-      <div class="settings-field"><label>Client Secret</label><input type="password" id="cfg-sp-cs" placeholder="Cole seu Client Secret"></div>
-      <button class="settings-save-btn" onclick="saveSettingsSpotify()">Salvar</button>
-    </div>
+
     <div class="settings-section">
       <div class="settings-section-title">Last.fm <button class="settings-help-btn" onclick="openSetupOverlay('lastfm')" data-tip="Como configurar">?</button></div>
       <div class="settings-field"><label>API Key</label><input type="text" id="cfg-lfm-key" placeholder="Cole sua API Key"></div>

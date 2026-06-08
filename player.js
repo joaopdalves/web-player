@@ -59,10 +59,10 @@ let _dragLeftItem = false;
 const DRAG_THRESHOLD = 5;
 const audio = document.getElementById('audio-el');
 function _hasEncryptedCreds() {
-  return ['sp_cid', 'sp_cs', 'lfm_key', 'lfm_secret', 'lfm_session', 'lfm_user', '_sentinel'].some(k => !!localStorage.getItem('enc_' + k));
+  return ['lfm_key', 'lfm_secret', 'lfm_session', 'lfm_user', '_sentinel'].some(k => !!localStorage.getItem('enc_' + k));
 }
 function _getFirstEncryptedKey() {
-  const found = ['sp_cid', 'sp_cs', 'lfm_key', 'lfm_secret', 'lfm_session', 'lfm_user', '_sentinel'].find(k => !!localStorage.getItem('enc_' + k));
+  const found = ['lfm_key', 'lfm_secret', 'lfm_session', 'lfm_user', '_sentinel'].find(k => !!localStorage.getItem('enc_' + k));
   return found ? 'enc_' + found : null;
 }
 async function _deriveKey(password, salt) {
@@ -411,9 +411,11 @@ async function init() {
   }
 }
 function switchTab(tab) {
-  ['spotify', 'lastfm'].forEach(t => {
-    document.getElementById('tab-' + t).classList.toggle('active', t === tab);
+  ['lastfm'].forEach(t => {
+    const tabEl = document.getElementById('tab-' + t);
+    if (tabEl) tabEl.classList.toggle('active', t === tab);
     const panel = document.getElementById('panel-' + t);
+    if (!panel) return;
     if (t === tab) {
       panel.classList.add('active');
       panel.style.animation = 'none';
@@ -428,20 +430,9 @@ function openSetupOverlay(tab) {
   const overlay = document.getElementById('setup-overlay');
   overlay.style.visibility = 'visible';
   overlay.classList.remove('hidden');
-  switchTab(tab || 'spotify');
+  switchTab('lastfm');
   document.getElementById('settings-panel').classList.add('hidden');
-  (async () => {
-    const cid = await loadSecret('sp_cid');
-    const cs = await loadSecret('sp_cs');
-    if (cid) {
-      const el = document.getElementById('setup-client-id');
-      if (el) el.value = cid;
-    }
-    if (cs) {
-      const el = document.getElementById('setup-client-secret');
-      if (el) el.value = cs;
-    }
-  })();
+
 }
 function _showSetupWarn(tooltipId, textId, msg) {
   const tip = document.getElementById(tooltipId);
@@ -457,27 +448,8 @@ function _showSetupWarn(tooltipId, textId, msg) {
     }, 3500);
   }
 }
-function saveSpotifyCredentials() {
-  const cid = document.getElementById('setup-client-id').value.trim();
-  const cs = document.getElementById('setup-client-secret').value.trim();
-  if (!cid || !cs) {
-    _showSetupWarn('sp-warn-tooltip', 'sp-warn-text', 'Preencha o Client ID e o Client Secret.');
-    return;
-  }
-  (async () => {
-    try {
-      await saveSecret('sp_cid', cid);
-      await saveSecret('sp_cs', cs);
-      toast('Credenciais do Spotify salvas!');
-      switchTab('lastfm');
-    } catch (e) {
-      _showSetupWarn('sp-warn-tooltip', 'sp-warn-text', 'Erro ao salvar — tente novamente.');
-    }
-  })();
-}
-function skipSpotifyCredentials() {
-  switchTab('lastfm');
-}
+
+
 function saveCredentials() {
   const lfmKey = document.getElementById('lfm-api-key').value.trim();
   const lfmSec = document.getElementById('lfm-api-secret').value.trim();
@@ -529,56 +501,7 @@ async function _fetchRace(urls, options, timeoutMs = 8000) {
     }
   });
 }
-async function getSpotifyToken() {
-  if (spotifyToken && Date.now() < tokenExpiry) return spotifyToken;
-  const cid = await loadSecret('sp_cid');
-  const cs = await loadSecret('sp_cs');
-  if (!cid || !cs) throw new Error('Credenciais do Spotify não configuradas. Abra as Configurações e salve seu Client ID e Client Secret.');
-  const tokenUrl = 'https://accounts.spotify.com/api/token';
-  const body = 'grant_type=client_credentials';
-  const auth = 'Basic ' + btoa(cid + ':' + cs);
-  const headers = {
-    'Content-Type': 'application/x-www-form-urlencoded',
-    'Authorization': auth
-  };
-  let data = null;
-  try {
-    const r = await _fetchWithTimeout(tokenUrl, {
-      method: 'POST',
-      headers,
-      body
-    }, 3000);
-    if (r.ok) {
-      const j = await r.json();
-      if (j.access_token) data = j;
-    }
-  } catch (e) {}
-  if (!data) {
-    const proxies = ['https://corsproxy.io/?' + encodeURIComponent(tokenUrl), 'https://api.allorigins.win/raw?url=' + encodeURIComponent(tokenUrl), 'https://proxy.cors.sh/' + tokenUrl, 'https://cors-anywhere.herokuapp.com/' + tokenUrl];
-    let res;
-    try {
-      res = await _fetchRace(proxies, {
-        method: 'POST',
-        headers,
-        body
-      }, 8000);
-    } catch (e) {
-      throw new Error('Não foi possível conectar ao Spotify. Verifique sua conexão e as credenciais. (' + e.message + ')');
-    }
-    try {
-      data = await res.json();
-    } catch (e) {
-      throw new Error('Resposta inválida do Spotify — tente novamente.');
-    }
-  }
-  if (!data?.access_token) {
-    const detail = data?.error_description || data?.error || JSON.stringify(data);
-    throw new Error('Spotify recusou as credenciais: ' + detail + '. Verifique Client ID e Client Secret.');
-  }
-  spotifyToken = data.access_token;
-  tokenExpiry = Date.now() + (data.expires_in - 60) * 1000;
-  return spotifyToken;
-}
+
 function extractTrackId(url) {
   const m = url.match(/track[/:]([A-Za-z0-9]+)/);
   return m ? m[1] : null;
@@ -586,39 +509,19 @@ function extractTrackId(url) {
 async function fetchSpotifyMeta(url) {
   const id = extractTrackId(url);
   if (!id) throw new Error('Link inválido. Use um link do tipo open.spotify.com/track/...');
-  const token = await getSpotifyToken();
-  const apiUrl = `https://api.spotify.com/v1/tracks/${id}`;
-  const headers = {
-    'Authorization': 'Bearer ' + token
-  };
+  const proxyUrl = `https://spotify-proxy.joaopdalves.workers.dev/tracks/${id}`;
   let d = null;
   try {
-    const r = await _fetchWithTimeout(apiUrl, {
-      headers
-    }, 3000);
+    const r = await _fetchWithTimeout(proxyUrl, {}, 8000);
     if (r.ok) {
       const j = await r.json();
       if (j.name) d = j;
     }
-  } catch (e) {}
-  if (!d) {
-    const proxies = ['https://corsproxy.io/?' + encodeURIComponent(apiUrl), 'https://api.allorigins.win/raw?url=' + encodeURIComponent(apiUrl), 'https://proxy.cors.sh/' + apiUrl, 'https://cors-anywhere.herokuapp.com/' + apiUrl];
-    let res;
-    try {
-      res = await _fetchRace(proxies, {
-        headers
-      }, 8000);
-    } catch (e) {
-      throw new Error('Erro ao buscar a música. Verifique sua conexão. (' + e.message + ')');
-    }
-    try {
-      d = await res.json();
-    } catch (e) {
-      throw new Error('Resposta inválida da API do Spotify.');
-    }
+  } catch (e) {
+    throw new Error('Erro ao buscar a música. Verifique sua conexão. (' + e.message + ')');
   }
   if (!d?.name) {
-    if (d?.error?.status === 401) throw new Error('Token inválido — recarregue a página e tente novamente.');
+    if (d?.error?.status === 401) throw new Error('Erro de autenticação no proxy — tente novamente.');
     if (d?.error?.status === 404) throw new Error('Música não encontrada. Confirme o link do Spotify.');
     const detail = d?.error ? JSON.stringify(d.error) : '';
     throw new Error('Música não encontrada. Verifique o link.' + (detail ? ' (' + detail + ')' : ''));
@@ -2531,8 +2434,6 @@ function toggleSettingsPanel(forceOpen) {
     return;
   }
   (async () => {
-    document.getElementById('cfg-sp-cid').value = (await loadSecret('sp_cid')) || '';
-    document.getElementById('cfg-sp-cs').value = (await loadSecret('sp_cs')) || '';
     document.getElementById('cfg-lfm-key').value = (await loadSecret('lfm_key')) || '';
     document.getElementById('cfg-lfm-secret').value = (await loadSecret('lfm_secret')) || '';
     updateSettingsLfmRow();
@@ -2544,24 +2445,7 @@ function closeSettingsPanel() {
   document.getElementById('settings-panel').classList.add('hidden');
   document.getElementById('btn-gear').classList.remove('active');
 }
-function saveSettingsSpotify() {
-  const cid = document.getElementById('cfg-sp-cid').value.trim();
-  const cs = document.getElementById('cfg-sp-cs').value.trim();
-  if (!cid || !cs) {
-    toast('Preencha Client ID e Secret.');
-    return;
-  }
-  (async () => {
-    try {
-      await saveSecret('sp_cid', cid);
-      await saveSecret('sp_cs', cs);
-      spotifyToken = null;
-      toast('Credenciais do Spotify salvas ✓');
-    } catch (e) {
-      toast('Erro ao salvar credenciais — tente novamente.');
-    }
-  })();
-}
+
 function saveSettingsLfm() {
   const key = document.getElementById('cfg-lfm-key').value.trim();
   const sec = document.getElementById('cfg-lfm-secret').value.trim();
