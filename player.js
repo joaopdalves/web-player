@@ -270,7 +270,6 @@ async function masterConfirm() {
         name: 'AES-GCM',
         iv: new Uint8Array(raw.iv)
       }, testKey, new Uint8Array(raw.data));
-      // Password is correct — derive and store key material, discard password
       await _pwStore.derive(pw);
       _masterAttempts = 0;
       _masterLockedUntil = 0;
@@ -278,18 +277,19 @@ async function masterConfirm() {
       localStorage.removeItem('_masterLockedUntil');
     } catch {
       _masterAttempts++;
-      const delays = [0, 5000, 15000];
+      const delays = [15000, 5000, 15000];
       const waitMs = delays[_masterAttempts - 1] !== undefined ? delays[_masterAttempts - 1] : 15000;
       _masterLockedUntil = Date.now() + waitMs;
       localStorage.setItem('_masterAttempts', String(_masterAttempts));
       localStorage.setItem('_masterLockedUntil', String(_masterLockedUntil));
       const restantes = 3 - _masterAttempts;
       const input = document.getElementById('master-input');
+      input.disabled = true;
+      btn.disabled = true;
+      input.value = '';
+      input.classList.add('input-error');
       if (_masterAttempts >= 3) {
-        input.disabled = true;
-        input.value = '';
         input.placeholder = 'Você esgotou as suas tentativas.';
-        input.classList.add('input-error');
         btn.textContent = 'Apagar dados e recomeçar';
         btn.disabled = false;
         btn.style.background = 'none';
@@ -298,14 +298,10 @@ async function masterConfirm() {
         btn.style.boxShadow = 'none';
         btn.style.textShadow = 'none';
         btn.onclick = masterReset;
-      } else if (waitMs > 0) {
-        input.disabled = true;
-        btn.disabled = true;
+      } else {
         btn.textContent = 'Entrar';
-        input.value = '';
         let remaining = Math.ceil(waitMs / 1000);
         input.placeholder = `Aguarde ${remaining}s antes de tentar novamente.`;
-        input.classList.add('input-error');
         const ticker = setInterval(() => {
           remaining--;
           if (remaining <= 0) {
@@ -319,13 +315,6 @@ async function masterConfirm() {
             input.placeholder = `Aguarde ${remaining}s antes de tentar novamente.`;
           }
         }, 1000);
-      } else {
-        input.value = '';
-        input.placeholder = `Senha incorreta. ${restantes} tentativa${restantes > 1 ? 's' : ''} restante${restantes > 1 ? 's' : ''}.`;
-        input.classList.add('input-error');
-        input.focus();
-        btn.textContent = 'Entrar';
-        btn.disabled = false;
       }
       return;
     }
@@ -334,7 +323,19 @@ async function masterConfirm() {
   if (!hasData) {
     saveSecret('_sentinel', '1').catch(() => {});
   }
-  document.getElementById('master-overlay').classList.add('hidden');
+  const masterOverlay = document.getElementById('master-overlay');
+  const masterCard = masterOverlay.querySelector('.master-card');
+  if (masterCard) {
+    masterCard.style.animation = 'modalCardOut 0.22s cubic-bezier(0.4,0,1,1) forwards';
+    masterOverlay.style.animation = 'modalOut 0.22s cubic-bezier(0.4,0,1,1) forwards';
+    setTimeout(() => {
+      masterOverlay.classList.add('hidden');
+      masterCard.style.animation = '';
+      masterOverlay.style.animation = '';
+    }, 220);
+  } else {
+    masterOverlay.classList.add('hidden');
+  }
   const appEl = document.getElementById('app');
   appEl.style.visibility = 'visible';
   requestAnimationFrame(() => requestAnimationFrame(() => appEl.classList.add('app-visible')));
@@ -551,7 +552,7 @@ function saveCredentials() {
       lfmInit();
       toast('Configurações salvas!');
     } catch (e) {
-      toast('Erro ao salvar configurações — tente novamente.');
+      toast('Erro ao salvar configurações. Tente novamente.');
     }
   })();
 }
@@ -611,7 +612,7 @@ async function fetchSpotifyMeta(url) {
     throw new Error('Erro ao buscar a música. Verifique sua conexão. (' + e.message + ')');
   }
   if (!d?.name) {
-    if (d?.error?.status === 401) throw new Error('Erro de autenticação no proxy — tente novamente.');
+    if (d?.error?.status === 401) throw new Error('Erro de autenticação no proxy. Tente novamente.');
     if (d?.error?.status === 404) throw new Error('Música não encontrada. Confirme o link do Spotify.');
     const detail = d?.error ? JSON.stringify(d.error) : '';
     throw new Error('Música não encontrada. Verifique o link.' + (detail ? ' (' + detail + ')' : ''));
@@ -766,7 +767,7 @@ async function confirmAdd() {
   const btn = document.getElementById('btn-confirm');
   const editIdx = window._editDataTrackIndex >= 0 ? window._editDataTrackIndex : -1;
   if (!url) {
-    _modalUrlErr('Link obrigatório — use "Sem dados" para pular');
+    _modalUrlErr('Link obrigatório. Use "Sem dados" para pular.');
     return;
   }
   if (!url.includes('spotify.com') || !url.includes('/track/')) {
@@ -911,7 +912,7 @@ function _batchProcessNext() {
   const title = document.getElementById('modal-title');
   const hint = document.getElementById('modal-hint');
   if (title) title.textContent = remaining > 0 ? `Adicionar música (faltam ${remaining + 1})` : 'Adicionar música';
-  if (hint) hint.textContent = `Arquivo: ${file.name.replace(/\.[^.]+$/, '')} — cole o link do Spotify ou clique em "Buscar e adicionar" para pular.`;
+  if (hint) hint.textContent = `Arquivo: ${file.name.replace(/\.[^.]+$/, '')}. Cole o link do Spotify ou clique em "Buscar e adicionar" para pular.`;
   document.getElementById('modal-overlay').classList.remove('hidden');
   setTimeout(() => document.getElementById('modal-spotify-url').focus(), 100);
 }
@@ -1660,7 +1661,7 @@ async function lfmStartAuth() {
     await saveSecret('lfm_key', key);
     await saveSecret('lfm_secret', sec);
   } catch (e) {
-    _showSetupWarn('lfm-warn-tooltip', 'lfm-warn-text', 'Erro ao salvar — tente novamente.');
+    _showSetupWarn('lfm-warn-tooltip', 'lfm-warn-text', 'Erro ao salvar. Tente novamente.');
     return;
   }
   lfmApiKey = key;
@@ -2578,7 +2579,7 @@ function saveSettingsLfm() {
       lfmUpdateStatusUI();
       await lfmStartAuthFromSettings(key, sec);
     } catch (e) {
-      toast('Erro ao salvar credenciais — tente novamente.');
+      toast('Erro ao salvar credenciais. Tente novamente.');
     }
   })();
 }

@@ -13,7 +13,7 @@
   <div class="master-card">
     <span class="master-icon">🔐</span>
     <h2 id="master-title">Criar senha</h2>
-    <p class="master-sub" id="master-sub">Esta senha criptografa suas credenciais do Last.fm armazenadas localmente. Não é possível recuperá-la — guarde bem.</p>
+    <p class="master-sub" id="master-sub">Esta senha criptografa suas credenciais do Last.fm armazenadas localmente. Não é possível recuperá-la, então guarde bem.</p>
     <div class="input-group">
       <label id="master-label">Senha</label>
       <input type="password" id="master-input" placeholder="Digite uma senha" onkeydown="if(event.key==='Enter') masterConfirm()">
@@ -64,7 +64,7 @@
         <span id="lfm-warn-text">Preencha a API Key e o Shared Secret.</span>
       </div>
       <button class="btn-primary" onclick="lfmStartAuth()" style="margin-bottom:10px; background:linear-gradient(180deg,rgba(213,16,7,0.92),rgba(160,10,5,0.97) 60%,rgba(213,16,7,0.85));">Autenticar com Last.fm</button>
-      <button class="btn-primary" onclick="saveCredentials()" style="background:rgba(255,255,255,0.06); color:var(--text-dim); border:1px solid rgba(255,255,255,0.09); box-shadow:none; text-shadow:none;">Pular — configurar depois</button>
+      <button class="btn-primary" onclick="saveCredentials()" style="background:rgba(255,255,255,0.06); color:var(--text-dim); border:1px solid rgba(255,255,255,0.09); box-shadow:none; text-shadow:none;">Pular e configurar depois</button>
     </div>
   </div>
 </div>
@@ -559,9 +559,9 @@
           <button class="stats-ctrl-btn active" id="stats-tracks-btn-alltime" onclick="setStatsPeriod('tracks','alltime')">Todos os tempos</button>
           <button class="stats-ctrl-btn" id="stats-tracks-btn-week" onclick="setStatsPeriod('tracks','week')">Semana</button>
         </div>
-        <div class="stats-section-title stats-period-title" id="stats-tracks-alltime-title">Top 10 — Todos os tempos</div>
+        <div class="stats-section-title stats-period-title" id="stats-tracks-alltime-title">Top 10: Todos os tempos</div>
         <div class="stats-list" id="stats-alltime-tracks"></div>
-        <div class="stats-section-title stats-period-title" id="stats-tracks-week-title" style="display:none;">Top 10 — Esta semana</div>
+        <div class="stats-section-title stats-period-title" id="stats-tracks-week-title" style="display:none;">Top 10: Esta semana</div>
         <div class="stats-list" id="stats-week-tracks" style="display:none;"></div>
       </div>
       
@@ -570,9 +570,9 @@
           <button class="stats-ctrl-btn active" id="stats-playlists-btn-alltime" onclick="setStatsPeriod('playlists','alltime')">Todos os tempos</button>
           <button class="stats-ctrl-btn" id="stats-playlists-btn-week" onclick="setStatsPeriod('playlists','week')">Semana</button>
         </div>
-        <div class="stats-section-title stats-period-title" id="stats-playlists-alltime-title">Top Playlists — Todos os tempos</div>
+        <div class="stats-section-title stats-period-title" id="stats-playlists-alltime-title">Top Playlists: Todos os tempos</div>
         <div class="stats-list" id="stats-alltime-playlists"></div>
-        <div class="stats-section-title stats-period-title" id="stats-playlists-week-title" style="display:none;">Top Playlists — Esta semana</div>
+        <div class="stats-section-title stats-period-title" id="stats-playlists-week-title" style="display:none;">Top Playlists: Esta semana</div>
         <div class="stats-list" id="stats-week-playlists" style="display:none;"></div>
       </div>
       
