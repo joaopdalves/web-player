@@ -509,7 +509,7 @@ function extractTrackId(url) {
 async function fetchSpotifyMeta(url) {
   const id = extractTrackId(url);
   if (!id) throw new Error('Link inválido. Use um link do tipo open.spotify.com/track/...');
-  const proxyUrl = `https://spotify-proxy.joaopdalves.workers.dev/tracks/${id}`;
+  const proxyUrl = `https://spotify-proxy.joaopdalves.workers.dev/track/${id}`;
   let d = null;
   try {
     const r = await _fetchWithTimeout(proxyUrl, {}, 8000);
