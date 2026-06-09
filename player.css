@@ -1145,7 +1145,12 @@
     animation: queueIn 0.2s cubic-bezier(0.34,1.4,0.64,1); z-index: 300;
   }
   .queue-panel.hidden { display: none; }
+  .queue-panel.queue-panel--closing {
+    animation: queueOut 0.16s cubic-bezier(0.4, 0, 1, 1) forwards;
+    pointer-events: none;
+  }
   @keyframes queueIn { from { opacity:0; transform:translateY(8px) scale(0.97); } to { opacity:1; transform:translateY(0) scale(1); } }
+  @keyframes queueOut { from { opacity:1; transform:translateY(0) scale(1); } to { opacity:0; transform:translateY(6px) scale(0.97); } }
   .queue-panel-header {
     display: flex; align-items: center; justify-content: space-between;
     padding: 11px 13px 7px;
@@ -1204,6 +1209,14 @@
     z-index: 800; animation: fadeIn 0.2s ease;
   }
   #confirm-overlay.hidden { display: none; }
+  #confirm-overlay.modal--closing {
+    animation: modalOut 0.18s cubic-bezier(0.4, 0, 1, 1) forwards;
+    pointer-events: none;
+  }
+  #confirm-overlay.modal--closing .confirm-card {
+    animation: modalCardOut 0.18s cubic-bezier(0.4, 0, 1, 1) forwards;
+  }
+  #confirm-overlay:not(.hidden) .confirm-card { animation: modalIn 0.22s cubic-bezier(0.34,1.2,0.64,1); }
   .confirm-card {
     background: var(--surface); border: 1px solid var(--border);
     border-radius: 16px; padding: 28px; width: 90%; max-width: 400px;
@@ -1221,6 +1234,14 @@
     z-index: 900; animation: fadeIn 0.2s ease;
   }
   #clear-library-modal.hidden { display: none; }
+  #clear-library-modal.modal--closing {
+    animation: modalOut 0.18s cubic-bezier(0.4, 0, 1, 1) forwards;
+    pointer-events: none;
+  }
+  #clear-library-modal.modal--closing .confirm-card {
+    animation: modalCardOut 0.18s cubic-bezier(0.4, 0, 1, 1) forwards;
+  }
+  #clear-library-modal:not(.hidden) .confirm-card { animation: modalIn 0.22s cubic-bezier(0.34,1.2,0.64,1); }
 
   
   #settings-wrap { position: fixed; top: 14px; right: 16px; z-index: 200; }
@@ -1245,7 +1266,12 @@
     animation: settingsIn 0.2s cubic-bezier(0.34,1.4,0.64,1); z-index: 300;
   }
   #settings-panel.hidden { display: none; }
+  #settings-panel.settings-panel--closing {
+    animation: settingsOut 0.16s cubic-bezier(0.4, 0, 1, 1) forwards;
+    pointer-events: none;
+  }
   @keyframes settingsIn { from { opacity:0; transform:translateY(-7px) scale(0.97); } to { opacity:1; transform:translateY(0) scale(1); } }
+  @keyframes settingsOut { from { opacity:1; transform:translateY(0) scale(1); } to { opacity:0; transform:translateY(-5px) scale(0.97); } }
   .settings-section { padding: 13px 15px 10px; border-bottom: 1px solid var(--border); }
   .settings-section:last-child { border-bottom: none; }
   .settings-section-title { font-size: 9px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent); opacity: 0.7; margin-bottom: 10px; display: flex; align-items: center; }

@@ -381,6 +381,14 @@ function masterResetConfirmed() {
   lfmApiSecret = null;
   queue = [];
   _shufflePool = [];
+  playlists = [];
+  playlistTracks = [];
+  _playlistContext = null;
+  currentPlaylistId = null;
+  clearNowPlaying();
+  document.getElementById('album-art').classList.remove('playing');
+  document.getElementById('icon-play').style.display = 'block';
+  document.getElementById('icon-pause').style.display = 'none';
   document.getElementById('master-input').disabled = false;
   _masterErrClear();
   const btn = document.getElementById('master-btn');
@@ -656,6 +664,8 @@ function fpClose() {
   const overlay = document.getElementById('file-picker-overlay');
   if (overlay.classList.contains('hidden') || overlay.classList.contains('modal--closing')) return;
   document.getElementById('fp-drop-zone').classList.remove('dragover');
+  _batchQueue = [];
+  pendingFile = null;
   overlay.classList.add('modal--closing');
   setTimeout(() => {
     overlay.classList.remove('modal--closing');
@@ -916,42 +926,6 @@ function _batchProcessNext() {
   document.getElementById('modal-overlay').classList.remove('hidden');
   setTimeout(() => document.getElementById('modal-spotify-url').focus(), 100);
 }
-function dbOpen() {
-  return new Promise((resolve, reject) => {
-    if (db) {
-      resolve(db);
-      return;
-    }
-    const req = indexedDB.open('player_db', 2);
-    req.onupgradeneeded = e => {
-      const d = e.target.result;
-      if (!d.objectStoreNames.contains('tracks')) {
-        d.createObjectStore('tracks', {
-          keyPath: 'id'
-        });
-      }
-      if (!d.objectStoreNames.contains('playlists')) {
-        d.createObjectStore('playlists', {
-          keyPath: 'id'
-        });
-      }
-      if (!d.objectStoreNames.contains('playlistTracks')) {
-        const pts = d.createObjectStore('playlistTracks', {
-          keyPath: 'id'
-        });
-        pts.createIndex('byPlaylist', 'playlistId');
-      }
-    };
-    req.onsuccess = e => {
-      db = e.target.result;
-      db.onclose = () => {
-        db = null;
-      };
-      resolve(db);
-    };
-    req.onerror = e => reject(e.target.error);
-  });
-}
 async function saveTrack(t) {
   try {
     const d = await dbOpen();
@@ -966,6 +940,7 @@ async function saveTrack(t) {
         spotifyUrl: t.spotifyUrl || null,
         albumId: t.albumId || null,
         albumName: t.albumName || null,
+        albumArtists: t.albumArtists || null,
         noData: t.noData || false,
         fileData: t.fileData,
         fileName: t.fileName,
@@ -1433,14 +1408,15 @@ function deleteTrack(e, i) {
   const t = tracks[i];
   showConfirmDelete(t.name, () => {
     const removedId = t.id;
-    const isPlaying = currentIndex === i;
+    const wasPlaying = currentIndex === i;
     if (t.blobUrl) URL.revokeObjectURL(t.blobUrl);
     if (t.coverUrl && t.coverUrl.startsWith('blob:')) URL.revokeObjectURL(t.coverUrl);
     tracks.splice(i, 1);
     queue = queue.filter(qi => qi !== i).map(qi => qi > i ? qi - 1 : qi);
     _shufflePool = [];
     _preQueueIndex = _preQueueIndex > i ? _preQueueIndex - 1 : _preQueueIndex === i ? -1 : _preQueueIndex;
-    if (isPlaying) {
+    if (wasPlaying) {
+      clearTimeout(scrobbleTimer);
       clearNowPlaying();
       setPlaying(false);
       _resetScrobbleBar();
@@ -2031,8 +2007,15 @@ function showConfirmDelete(trackName, onConfirm) {
   document.getElementById('confirm-overlay').classList.remove('hidden');
 }
 function closeConfirmDelete() {
-  document.getElementById('confirm-overlay').classList.add('hidden');
+  const overlay = document.getElementById('confirm-overlay');
+  if (overlay.classList.contains('hidden') || overlay.classList.contains('modal--closing')) return;
+  const cb = _confirmCallback;
   _confirmCallback = null;
+  overlay.classList.add('modal--closing');
+  setTimeout(() => {
+    overlay.classList.remove('modal--closing');
+    overlay.classList.add('hidden');
+  }, 180);
 }
 document.getElementById('confirm-overlay').addEventListener('click', function (e) {
   if (e.target === this) closeConfirmDelete();
@@ -2128,6 +2111,7 @@ function ctxRemove() {
       _preQueueIndex = _preQueueIndex > i ? _preQueueIndex - 1 : _preQueueIndex === i ? -1 : _preQueueIndex;
       const _isPlaying = currentIndex === i;
       if (_isPlaying) {
+        clearTimeout(scrobbleTimer);
         clearNowPlaying();
         setPlaying(false);
         _resetScrobbleBar();
@@ -2160,12 +2144,32 @@ function openClearLibraryModal() {
   document.getElementById('clear-library-modal').classList.remove('hidden');
 }
 function closeClearLibraryModal() {
-  document.getElementById('clear-library-modal').classList.add('hidden');
+  const modal = document.getElementById('clear-library-modal');
+  if (modal.classList.contains('hidden') || modal.classList.contains('modal--closing')) return;
+  modal.classList.add('modal--closing');
+  setTimeout(() => {
+    modal.classList.remove('modal--closing');
+    modal.classList.add('hidden');
+  }, 180);
 }
 function confirmClearDatabase() {
   closeClearLibraryModal();
+  audio.pause();
+  audio.src = '';
+  isPlaying = false;
   tracks = [];
   currentIndex = -1;
+  queue = [];
+  _preQueueIndex = -1;
+  searchQuery = '';
+  clearNowPlaying();
+  document.getElementById('album-art').classList.remove('playing');
+  document.getElementById('icon-play').style.display = 'block';
+  document.getElementById('icon-pause').style.display = 'none';
+  playlists = [];
+  playlistTracks = [];
+  _playlistContext = null;
+  currentPlaylistId = null;
   renderList();
   if (db) {
     try {
@@ -2174,18 +2178,38 @@ function confirmClearDatabase() {
     db = null;
   }
   const req = indexedDB.deleteDatabase('player_db');
-  req.onsuccess = () => location.reload();
-  req.onerror = () => location.reload();
-  req.onblocked = () => location.reload();
+  req.onsuccess = async () => {
+    await dbOpen();
+    toast('Biblioteca limpa.');
+  };
+  req.onerror = async () => {
+    await dbOpen();
+    toast('Biblioteca limpa.');
+  };
+  req.onblocked = async () => {
+    await dbOpen();
+    toast('Biblioteca limpa.');
+  };
 }
 function clearDatabase() {
   openClearLibraryModal();
 }
 function toggleQueuePanel() {
-  document.getElementById('queue-panel').classList.toggle('hidden');
+  const panel = document.getElementById('queue-panel');
+  if (panel.classList.contains('hidden')) {
+    panel.classList.remove('hidden');
+  } else {
+    closeQueuePanel();
+  }
 }
 function closeQueuePanel() {
-  document.getElementById('queue-panel').classList.add('hidden');
+  const panel = document.getElementById('queue-panel');
+  if (panel.classList.contains('hidden') || panel.classList.contains('queue-panel--closing')) return;
+  panel.classList.add('queue-panel--closing');
+  setTimeout(() => {
+    panel.classList.remove('queue-panel--closing');
+    panel.classList.add('hidden');
+  }, 160);
 }
 function clearQueue() {
   queue = [];
@@ -2536,8 +2560,7 @@ function toggleSettingsPanel(forceOpen) {
   const btn = document.getElementById('btn-gear');
   const isHidden = panel.classList.contains('hidden');
   if (!forceOpen && !isHidden) {
-    panel.classList.add('hidden');
-    btn.classList.remove('active');
+    closeSettingsPanel();
     return;
   }
   (async () => {
@@ -2549,7 +2572,14 @@ function toggleSettingsPanel(forceOpen) {
   btn.classList.add('active');
 }
 function closeSettingsPanel() {
-  document.getElementById('settings-panel').classList.add('hidden');
+  const panel = document.getElementById('settings-panel');
+  if (panel.classList.contains('hidden') || panel.classList.contains('settings-panel--closing')) return;
+  document.getElementById('btn-gear').classList.remove('active');
+  panel.classList.add('settings-panel--closing');
+  setTimeout(() => {
+    panel.classList.remove('settings-panel--closing');
+    panel.classList.add('hidden');
+  }, 160);
 }
 function closeSetupOverlay() {
   const overlay = document.getElementById('setup-overlay');
@@ -2690,6 +2720,7 @@ document.addEventListener('keydown', e => {
     closeDeletePlaylistModal();
     closeRemoveFromPlaylistModal();
     closeAddToPlaylistModal();
+    closeStatsModal();
   }
 });
 let currentLibraryView = 'library';
@@ -4200,11 +4231,7 @@ function _chartSetupZoom(chartSize) {
     attributeFilter: ['style']
   });
 })();
-document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') {
-    closeStatsModal();
-  }
-});
+
 function setStatsPeriod(tab, period) {
   const alltimeBtn = document.getElementById(`stats-${tab}-btn-alltime`);
   const weekBtn = document.getElementById(`stats-${tab}-btn-week`);
