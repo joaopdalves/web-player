@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Web Player</title>
 <link rel="icon" type="image/png" href="icon/favicon.png">
-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="player.css">
 </head>
 <body>
@@ -282,7 +282,10 @@
     </div>
     <div class="settings-section">
       <div class="settings-section-title">Biblioteca</div>
-      <button class="settings-save-btn" onclick="openClearLibraryModal()" style="margin-top:0;background:linear-gradient(180deg,rgba(200,50,50,0.7),rgba(160,30,30,0.8));border-color:rgba(255,80,80,0.3);color:#ffaaaa;">Limpar biblioteca</button>
+      <button class="settings-save-btn" id="btn-backup" onclick="downloadBackup()" style="margin-top:0;margin-bottom:6px;">Baixar músicas</button>
+      <button class="settings-save-btn" onclick="document.getElementById('restore-file-input').click()" style="margin-top:0;margin-bottom:6px;">Transferir músicas</button>
+      <input type="file" id="restore-file-input" accept=".json" style="display:none" onchange="importBackup(event)">
+      <button class="settings-save-btn" onclick="openClearLibraryModal()" style="margin-top:0;background:linear-gradient(180deg,rgba(200,50,50,0.7),rgba(160,30,30,0.8));border-color:rgba(255,80,80,0.3);color:#ffaaaa;box-shadow:0 2px 8px rgba(200,50,50,0.45),inset 0 1px 0 rgba(255,255,255,0.07);">Limpar biblioteca</button>
     </div>
   </div>
 </div>

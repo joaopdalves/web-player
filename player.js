@@ -31,7 +31,6 @@ const _pwStore = (() => {
       const keyMaterial = await crypto.subtle.importKey(
         'raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveKey']
       );
-      // Store a random salt per session to derive a wrapping key
       _salt = crypto.getRandomValues(new Uint8Array(16));
       _key = keyMaterial;
     },
@@ -515,7 +514,6 @@ function openSetupOverlay(tab) {
   const overlay = document.getElementById('setup-overlay');
   overlay.style.visibility = 'visible';
   overlay.classList.remove('hidden');
-  // Activate panel without animation
   const panel = document.getElementById('panel-lastfm');
   if (panel) {
     panel.classList.remove('setup-panel--animate');
@@ -1604,7 +1602,6 @@ function lfmUpdateStatusUI() {
 }
 function lfmOpenSettings() {
   document.getElementById('setup-overlay').classList.remove('hidden');
-  // Activate panel without animation
   const panel = document.getElementById('panel-lastfm');
   if (panel) {
     panel.classList.remove('setup-panel--animate');
@@ -4347,4 +4344,178 @@ function _setupPlCoverZoom() {
     coverEl.removeEventListener('mouseleave', onMouseLeave);
     preview.classList.remove('visible');
   };
+}async function downloadBackup() {
+  if (tracks.length === 0) {
+    toast('Nenhuma música para baixar.');
+    return;
+  }
+  const btn = document.getElementById('btn-backup');
+  const originalText = btn.textContent;
+  btn.textContent = 'Preparando download…';
+  btn.disabled = true;
+  try {
+    const d = await dbOpen();
+    const tx = d.transaction('tracks', 'readonly');
+    const rawTracks = await new Promise((res, rej) => {
+      const r = tx.objectStore('tracks').getAll();
+      r.onsuccess = () => res(r.result || []);
+      r.onerror = () => rej(r.error);
+    });
+    const validTracks = rawTracks.filter(t => t.fileData && t.name);
+    const invalidRemoved = rawTracks.length - validTracks.length;
+    const seenWithData = new Set();
+    const seenNoData = new Set();
+    const uniqueTracks = validTracks.filter(t => {
+      if (t.noData) {
+        const key = (t.fileName || '').toLowerCase().trim();
+        if (!key || seenNoData.has(key)) return false;
+        seenNoData.add(key);
+        return true;
+      } else {
+        const key = (t.name || '').toLowerCase().trim() + '||' + (t.artist || '').toLowerCase().trim();
+        if (!key || seenWithData.has(key)) return false;
+        seenWithData.add(key);
+        return true;
+      }
+    });
+    const duplicatesRemoved = validTracks.length - uniqueTracks.length;
+    const estimatedMB = uniqueTracks.reduce((sum, t) => sum + (t.fileData ? t.fileData.length * 0.75 / 1024 / 1024 : 0), 0);
+    if (estimatedMB > 200) {
+      const proceed = confirm(`Atenção: sua biblioteca tem aproximadamente ${Math.round(estimatedMB)} MB. O download pode demorar ou travar o navegador em bibliotecas muito grandes. Deseja continuar?`);
+      if (!proceed) {
+        btn.textContent = originalText;
+        btn.disabled = false;
+        return;
+      }
+    }
+    const backup = {
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      tracks: uniqueTracks.map(t => ({
+        id: t.id,
+        name: t.name,
+        artist: t.artist,
+        cover: t.cover || null,
+        spotifyUrl: t.spotifyUrl || null,
+        albumId: t.albumId || null,
+        albumName: t.albumName || null,
+        albumArtists: t.albumArtists || null,
+        noData: t.noData || false,
+        fileData: t.fileData,
+        fileName: t.fileName,
+        order: t.order
+      }))
+    };
+    const json = JSON.stringify(backup);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const pad = n => String(n).padStart(2, '0');
+    const now = new Date();
+    const dateStr = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}_${pad(now.getHours())}-${pad(now.getMinutes())}`;
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `musicas_backup_${dateStr}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+    const dupMsg = duplicatesRemoved > 0 ? ` ${duplicatesRemoved} duplicata${duplicatesRemoved !== 1 ? 's' : ''} removida${duplicatesRemoved !== 1 ? 's' : ''}.` : '';
+    const invalidMsg = invalidRemoved > 0 ? ` ${invalidRemoved} música${invalidRemoved !== 1 ? 's' : ''} sem dados ignorada${invalidRemoved !== 1 ? 's' : ''}.` : '';
+    toast(`Backup de ${uniqueTracks.length} música${uniqueTracks.length !== 1 ? 's' : ''} baixado!${dupMsg}${invalidMsg}`);
+  } catch (e) {
+    toast('Erro ao gerar backup.');
+    console.error(e);
+  } finally {
+    btn.textContent = originalText;
+    btn.disabled = false;
+  }
+}
+async function importBackup(event) {
+  const file = event.target.files[0];
+  if (event.target.files.length > 1) {
+    toast('Apenas um arquivo por vez. Importando somente o primeiro.');
+  }
+  event.target.value = '';
+  if (!file) return;
+  let backup;
+  try {
+    const text = await file.text();
+    backup = JSON.parse(text);
+  } catch {
+    toast('Arquivo inválido ou corrompido.');
+    return;
+  }
+  if (!backup || typeof backup !== 'object' || !Array.isArray(backup.tracks)) {
+    toast('Arquivo de backup inválido.');
+    return;
+  }
+  if (typeof backup.version !== 'number') {
+    toast('Arquivo de backup inválido: versão não reconhecida.');
+    return;
+  }
+  if (backup.version > 1) {
+    toast('Este backup foi feito em uma versão mais nova do app e não é compatível com esta versão.');
+    return;
+  }
+  if (backup.version !== 1) {
+    toast('Arquivo de backup inválido.');
+    return;
+  }
+  const hasValidTrack = backup.tracks.some(t => t && typeof t === 'object' && t.name && t.fileData);
+  if (backup.tracks.length === 0 || !hasValidTrack) {
+    toast('O backup não contém músicas válidas.');
+    return;
+  }
+  const existingKeys = new Set(tracks.map(t => (t.name.toLowerCase().trim() + '||' + (t.artist || '').toLowerCase().trim())));
+  let added = 0;
+  let skipped = 0;
+  let invalid = 0;
+  const maxOrder = tracks.length > 0 ? Math.max(...tracks.map(t => t.order || 0)) : 0;
+  for (const raw of backup.tracks) {
+    if (!raw.fileData || !raw.name) { invalid++; continue; }
+    const nameKey = raw.name.toLowerCase().trim() + '||' + (raw.artist || '').toLowerCase().trim();
+    if (existingKeys.has(nameKey)) {
+      skipped++;
+      continue;
+    }
+    existingKeys.add(nameKey);
+    const track = {
+      id: 'track_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
+      name: raw.name,
+      artist: raw.artist || 'Artista desconhecido',
+      cover: raw.cover || null,
+      spotifyUrl: raw.spotifyUrl || null,
+      albumId: raw.albumId || null,
+      albumName: raw.albumName || null,
+      albumArtists: raw.albumArtists || null,
+      noData: raw.noData || false,
+      fileData: raw.fileData,
+      fileName: raw.fileName || raw.name,
+      order: maxOrder + added + 1
+    };
+    track.blobUrl = _base64ToBlobURL(track.fileData, 'audio/mpeg');
+    if (track.cover && track.cover.startsWith('data:')) {
+      const mime = track.cover.split(';')[0].split(':')[1] || 'image/jpeg';
+      track.coverUrl = _base64ToBlobURL(track.cover, mime);
+    } else if (track.cover && (track.cover.startsWith('http') || track.cover.startsWith('//'))) {
+      track.coverUrl = track.cover;
+    } else {
+      track.coverUrl = null;
+    }
+    insertAlphabetically(track);
+    _shufflePool = [];
+    added++;
+  }
+  renderList();
+  if (tracks.length === added && added > 0) selectTrack(0);
+  const invalidMsg = invalid > 0 ? ` ${invalid} ignorada${invalid !== 1 ? 's' : ''} por dados inválidos.` : '';
+  if (added > 0 && skipped > 0) {
+    toast(`${added} música${added !== 1 ? 's' : ''} adicionada${added !== 1 ? 's' : ''}. ${skipped} já existia${skipped !== 1 ? 'm' : ''}.${invalidMsg}`);
+  } else if (added > 0) {
+    toast(`${added} música${added !== 1 ? 's' : ''} adicionada${added !== 1 ? 's' : ''} com sucesso!${invalidMsg}`);
+  } else if (skipped > 0) {
+    toast(`Todas as músicas já estavam na biblioteca.${invalidMsg}`);
+  } else {
+    toast('Nenhuma música importada.' + invalidMsg);
+  }
 }
