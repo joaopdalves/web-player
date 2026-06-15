@@ -836,6 +836,27 @@ async function confirmAdd() {
         t.coverUrl = null;
       }
       saveTrack(t);
+      // Atualizar registro de estatísticas com os novos dados (caso a música tenha sido contabilizada como noData)
+      (async () => {
+        try {
+          const statsRec = await _statsTrackGet(t.id);
+          if (statsRec) {
+            statsRec.name = t.name;
+            statsRec.artist = t.artist || statsRec.artist;
+            statsRec.cover = t.cover || t.coverUrl || statsRec.cover;
+            statsRec.spotifyUrl = t.spotifyUrl || statsRec.spotifyUrl;
+            statsRec.albumId = t.albumId || statsRec.albumId;
+            statsRec.albumName = t.albumName || statsRec.albumName;
+            if (t.albumArtists && Array.isArray(t.albumArtists) && t.albumArtists.length > 0) {
+              statsRec.albumArtists = t.albumArtists;
+            }
+            await _statsTrackPut(statsRec);
+            _refreshStatsIfOpen();
+          }
+        } catch (e) {
+          console.warn('[stats] Falha ao atualizar estatísticas após edição de dados:', e);
+        }
+      })();
       if (currentIndex === editIdx) selectTrack(editIdx);else renderList();
       toast(`Dados de "${meta.name}" atualizados!`);
     } else {
