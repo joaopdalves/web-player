@@ -9,7 +9,7 @@
 <link rel="stylesheet" href="player.css">
 </head>
 <body>
-<div id="master-overlay">
+<div id="master-overlay" role="dialog" aria-modal="true" aria-labelledby="master-title">
   <div class="master-card">
     <span class="master-icon">🔐</span>
     <h2 id="master-title">Criar senha</h2>
@@ -35,7 +35,7 @@
   </div>
 </div>
 
-<div id="setup-overlay" style="visibility:hidden;">
+<div id="setup-overlay" style="visibility:hidden;" role="dialog" aria-modal="true" aria-label="Configurar Last.fm">
   <div class="setup-card">
     <div class="setup-tabs">
       <button class="setup-tab active" id="tab-lastfm"><img src="https://cdn.brandfetch.io/id-7gRYkpj/w/400/h/400/theme/dark/icon.jpeg?c=1bxid64Mup7aczewSAYMX&t=1667799583371" width="14" height="14" style="border-radius:3px;flex-shrink:0;vertical-align:middle"> Last.fm</button>
@@ -63,13 +63,13 @@
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
         <span id="lfm-warn-text">Preencha a API Key e o Shared Secret.</span>
       </div>
-      <button class="btn-primary" onclick="lfmStartAuth()" style="margin-bottom:10px; background:linear-gradient(180deg,rgba(213,16,7,0.92),rgba(160,10,5,0.97) 60%,rgba(213,16,7,0.85));">Autenticar com Last.fm</button>
-      <button class="btn-primary" onclick="saveCredentials()" style="background:rgba(255,255,255,0.06); color:var(--text-dim); border:1px solid rgba(255,255,255,0.09); box-shadow:none; text-shadow:none;">Pular e configurar depois</button>
+      <button class="btn-primary btn-lfm-auth" onclick="lfmStartAuth()">Autenticar com Last.fm</button>
+      <button class="btn-primary btn-skip" onclick="saveCredentials()">Pular e configurar depois</button>
     </div>
   </div>
 </div>
 
-<div id="lfm-auth-modal" class="hidden">
+<div id="lfm-auth-modal" class="hidden" role="dialog" aria-modal="true" aria-label="Autorizar Last.fm">
   <div class="lfm-modal-card">
     <h3>Autorizar Last.fm</h3>
     <p>Siga os passos abaixo para conectar sua conta:</p>
@@ -79,7 +79,7 @@
     <div id="lfm-modal-status" style="font-size:12px; color:var(--text-muted); min-height:16px; margin-bottom:14px;"></div>
     <div class="lfm-modal-actions">
       <button class="btn-cancel" onclick="closeLfmAuthModal()">Cancelar</button>
-      <button class="btn-confirm" onclick="lfmGetSession()" id="lfm-session-btn" style="background:linear-gradient(180deg,rgba(213,16,7,0.92),rgba(160,10,5,0.97) 60%,rgba(213,16,7,0.85));border-color:rgba(255,80,80,0.4);">Já autorizei ✓</button>
+      <button class="btn-confirm btn-lfm-confirm" onclick="lfmGetSession()" id="lfm-session-btn">Já autorizei ✓</button>
     </div>
   </div>
 </div>
@@ -87,6 +87,7 @@
 <div id="app" style="visibility:hidden;">
 
   
+<div class="mobile-panels">
   <div id="sidebar">
     <div class="sidebar-header">
       <h1>Minha Biblioteca</h1>
@@ -97,7 +98,7 @@
         <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
       </svg>
       <input type="text" id="search-input" class="search-input" placeholder="Buscar música ou artista…" oninput="onSearchInput(this.value)">
-      <button class="search-clear hidden" id="search-clear" onclick="clearSearch()" data-tip="Limpar">
+      <button class="search-clear hidden" id="search-clear" onclick="clearSearch()" data-tip="Limpar" aria-label="Limpar busca">
         <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
     </div>
@@ -173,7 +174,8 @@
     </div>
   </div>
 
-  
+  </div>
+
   <div id="player-bar">
     <div class="lfm-scrobble-bar" id="lfm-scrobble-bar"></div>
     <div class="progress-area">
@@ -185,13 +187,13 @@
 
       
       <div class="controls-left">
-        <button class="ctrl-btn" id="btn-shuffle" onclick="toggleShuffle()" data-tip="Aleatório">
+        <button class="ctrl-btn" id="btn-shuffle" onclick="toggleShuffle(event)" data-tip="Aleatório" aria-label="Aleatório">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/>
             <polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/>
           </svg>
         </button>
-        <button class="ctrl-btn" id="btn-repeat" onclick="toggleRepeat()" data-tip="Repetir">
+        <button class="ctrl-btn" id="btn-repeat" onclick="toggleRepeat(event)" data-tip="Repetir" aria-label="Repetir">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/>
             <polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/>
@@ -201,14 +203,14 @@
 
       
       <div class="controls-center">
-        <button class="ctrl-btn" onclick="prevTrack()" data-tip="Anterior">
+        <button class="ctrl-btn" onclick="prevTrack()" data-tip="Anterior" aria-label="Música anterior">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
         </button>
-        <button class="ctrl-btn play-pause" id="btn-play" onclick="togglePlay()" data-tip="Play/Pause">
+        <button class="ctrl-btn play-pause" id="btn-play" onclick="togglePlay()" data-tip="Play/Pause" aria-label="Play / Pause">
           <svg id="icon-play" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
           <svg id="icon-pause" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style="display:none"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
         </button>
-        <button class="ctrl-btn" onclick="nextTrack()" data-tip="Próxima">
+        <button class="ctrl-btn" onclick="nextTrack()" data-tip="Próxima" aria-label="Próxima música">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M16 6h2v12h-2zm-2.5 6L5 6v12z"/></svg>
         </button>
       </div>
@@ -217,22 +219,19 @@
       <div class="controls-right">
         
         <div class="queue-btn-wrap">
-          <button class="ctrl-btn" id="btn-queue" onclick="toggleQueuePanel()" data-tip="Fila">
+          <button class="ctrl-btn" id="btn-queue" onclick="toggleQueuePanel()" data-tip="Fila" aria-label="Fila de reprodução">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
           </button>
-          <div id="queue-panel" class="queue-panel hidden">
-            <div class="queue-panel-header">
-              <span>Fila</span>
-              <button onclick="clearQueue()" id="btn-clear-queue" class="queue-clear-btn" data-tip="Limpar fila">
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-              </button>
-            </div>
-            <div id="queue-panel-list"></div>
-          </div>
         </div>
 
+        <button class="ctrl-btn volume-mobile-btn" aria-label="Volume" title="Volume" onclick="openVolumeMobileModal()">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+            <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/>
+          </svg>
+        </button>
         <div class="volume-area">
-          <button class="ctrl-btn" onclick="toggleMute()" data-tip="Mudo" id="btn-mute">
+          <button class="ctrl-btn" onclick="toggleMute()" data-tip="Mudo" id="btn-mute" aria-label="Silenciar">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
               <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
               <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/>
@@ -253,8 +252,15 @@
   </div>
 </div>
 
+<div id="view-toggle-wrap" style="visibility:hidden;">
+  <button id="btn-mobile-toggle" onclick="toggleMobileView()" aria-label="Alternar visualização">
+    <svg id="mobile-toggle-icon-list" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="7" height="18" rx="1"/><rect x="13" y="3" width="9" height="5" rx="1"/><rect x="13" y="11" width="9" height="5" rx="1"/><rect x="13" y="19" width="9" height="2" rx="1"/></svg>
+    <svg id="mobile-toggle-icon-now" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+  </button>
+</div>
+
 <div id="stats-wrap" style="visibility:hidden;">
-  <button id="btn-stats" onclick="openStatsModal()" data-tip="Estatísticas">
+  <button id="btn-stats" onclick="openStatsModal()" data-tip="Estatísticas" aria-label="Estatísticas musicais">
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>
     </svg>
@@ -262,7 +268,7 @@
 </div>
 
 <div id="settings-wrap" style="visibility:hidden;">
-  <button id="btn-gear" onclick="toggleSettingsPanel()" data-tip="Configurações">
+  <button id="btn-gear" onclick="toggleSettingsPanel()" data-tip="Configurações" aria-label="Configurações">
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
     </svg>
@@ -271,9 +277,9 @@
 
     <div class="settings-section">
       <div class="settings-section-title">Last.fm <button class="settings-help-btn" onclick="openSetupOverlay('lastfm')" data-tip="Como configurar">?</button></div>
-      <div class="settings-field"><label>API Key</label><input type="text" id="cfg-lfm-key" placeholder="Cole sua API Key"></div>
-      <div class="settings-field"><label>Shared Secret</label><input type="password" id="cfg-lfm-secret" placeholder="Cole seu Shared Secret"></div>
-      <button class="settings-save-btn" onclick="saveSettingsLfm()" style="margin-bottom:6px;">Salvar & Autenticar</button>
+      <div class="settings-field"><label for="cfg-lfm-key">API Key</label><input type="text" id="cfg-lfm-key" placeholder="Cole sua API Key"></div>
+      <div class="settings-field"><label for="cfg-lfm-secret">Shared Secret</label><input type="password" id="cfg-lfm-secret" placeholder="Cole seu Shared Secret"></div>
+      <button class="settings-save-btn settings-save-btn--auth" onclick="saveSettingsLfm()">Salvar & Autenticar</button>
       <div class="settings-lfm-row" id="settings-lfm-row">
         <span class="lfm-dot-sm"></span>
         <span id="settings-lfm-label">Não conectado</span>
@@ -282,10 +288,10 @@
     </div>
     <div class="settings-section">
       <div class="settings-section-title">Biblioteca</div>
-      <button class="settings-save-btn" id="btn-backup" onclick="downloadBackup()" style="margin-top:0;margin-bottom:6px;">Baixar músicas</button>
-      <button class="settings-save-btn" onclick="document.getElementById('restore-file-input').click()" style="margin-top:0;margin-bottom:6px;">Transferir músicas</button>
+      <button class="settings-save-btn" id="btn-backup" onclick="downloadBackup()">Baixar músicas</button>
+      <button class="settings-save-btn" onclick="document.getElementById('restore-file-input').click()">Transferir músicas</button>
       <input type="file" id="restore-file-input" accept=".json" style="display:none" onchange="importBackup(event)">
-      <button class="settings-save-btn" onclick="openClearLibraryModal()" style="margin-top:0;background:linear-gradient(180deg,rgba(200,50,50,0.7),rgba(160,30,30,0.8));border-color:rgba(255,80,80,0.3);color:#ffaaaa;box-shadow:0 2px 8px rgba(200,50,50,0.45),inset 0 1px 0 rgba(255,255,255,0.07);">Limpar biblioteca</button>
+      <button class="settings-save-btn settings-save-btn--danger" onclick="openClearLibraryModal()">Limpar biblioteca</button>
     </div>
   </div>
 </div>
@@ -316,18 +322,18 @@
   </div>
 </div>
 
-<div id="confirm-overlay" class="hidden">
+<div id="confirm-overlay" class="hidden" role="dialog" aria-modal="true" aria-label="Confirmar remoção">
   <div class="confirm-card">
     <h3>Remover música</h3>
     <p id="confirm-msg">Tem certeza?</p>
     <div class="modal-actions">
       <button class="btn-cancel" onclick="closeConfirmDelete()">Cancelar</button>
-      <button class="btn-confirm" id="confirm-yes-btn">Remover</button>
+      <button class="btn-confirm" id="confirm-yes-btn" style="background:linear-gradient(180deg,rgba(200,50,50,0.92),rgba(160,30,30,0.97) 60%,rgba(200,50,50,0.85));border-color:rgba(255,80,80,0.4);border-top-color:rgba(255,120,120,0.5);color:#fff;box-shadow:0 4px 18px rgba(200,50,50,0.45),inset 0 1px 0 rgba(255,255,255,0.22),inset 0 -1px 0 rgba(0,0,0,0.18);">Remover</button>
     </div>
   </div>
 </div>
 
-<div id="clear-library-modal" class="hidden">
+<div id="clear-library-modal" class="hidden" role="dialog" aria-modal="true" aria-label="Limpar biblioteca">
   <div class="confirm-card">
     <h3>Limpar biblioteca</h3>
     <p>Isso vai apagar <strong>todas as músicas e playlists</strong> da sua biblioteca. Esta ação não pode ser desfeita.</p>
@@ -340,7 +346,7 @@
 
 <div id="custom-tooltip"></div>
 
-<div id="file-picker-overlay" class="hidden">
+<div id="file-picker-overlay" class="hidden" role="dialog" aria-modal="true" aria-label="Adicionar música">
   <div class="fp-card">
     <div class="fp-header">
       <div class="fp-icon">
@@ -374,7 +380,7 @@
   </div>
 </div>
 
-<div id="modal-overlay" class="hidden">
+<div id="modal-overlay" class="hidden" role="dialog" aria-modal="true" aria-labelledby="modal-title">
   <div class="modal-card">
     <h3 id="modal-title">Adicionar música</h3>
     <p class="hint" id="modal-hint">Cole o link da música no Spotify para buscar automaticamente a capa, nome e artista. <strong style="color:var(--text-dim);">Obrigatório</strong> para adicionar com dados.</p>
@@ -390,7 +396,7 @@
   </div>
 </div>
 
-<div id="toast"></div>
+<div id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
 
 <div id="create-playlist-modal" class="hidden">
   <div class="modal-card playlist-modal-card">
@@ -491,7 +497,7 @@
   </div>
 </div>
 
-<div id="edit-playlist-modal" class="hidden">
+<div id="edit-playlist-modal" class="hidden" role="dialog" aria-modal="true" aria-label="Editar playlist">
   <div class="modal-card playlist-modal-card">
     <h3>Editar playlist</h3>
     <div class="input-group" style="margin-bottom:12px;">
@@ -542,7 +548,7 @@
   </div>
 </div>
 
-<div id="stats-modal" class="hidden">
+<div id="stats-modal" class="hidden" role="dialog" aria-modal="true" aria-label="Estatísticas musicais">
   <div class="stats-modal-card">
     <div class="stats-modal-header">
       <h3>Estatísticas Musicais</h3>
@@ -557,7 +563,7 @@
     </div>
     <div class="stats-body">
       
-      <div class="stats-panel active" id="stats-panel-tracks">
+      <div class="stats-panel" id="stats-panel-tracks">
         <div class="stats-period-toggle" id="stats-tracks-period-toggle">
           <button class="stats-ctrl-btn active" id="stats-tracks-btn-alltime" onclick="setStatsPeriod('tracks','alltime')">Todos os tempos</button>
           <button class="stats-ctrl-btn" id="stats-tracks-btn-week" onclick="setStatsPeriod('tracks','week')">Semana</button>
@@ -604,6 +610,39 @@
   </div>
 </div>
 
+<div id="error-state" class="error-state hidden">
+  <div class="error-card">
+    <div class="error-card-icon">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+    </div>
+    <h2>Erro ao carregar configurações</h2>
+    <p>Não foi possível acessar suas configurações armazenadas. Isso pode ser causado por um problema de conexão ou de armazenamento local.</p>
+    <div class="error-detail" id="error-detail"></div>
+    <p>Recarregue a página para tentar novamente. Se o problema persistir, verifique as permissões do navegador ou contate o suporte.</p>
+    <button class="btn-primary" onclick="location.reload()">Recarregar página</button>
+  </div>
+</div>
+<div id="volume-mobile-modal" class="hidden">
+  <div class="volume-mobile-modal-card">
+    <div class="volume-mobile-modal-title">Volume</div>
+    <div class="volume-mobile-slider-row">
+      <svg class="volume-mobile-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/></svg>
+      <input type="range" id="volume-mobile-slider" min="0" max="100" value="100">
+      <svg class="volume-mobile-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+      <span class="volume-mobile-pct" id="volume-mobile-pct">100%</span>
+    </div>
+    <button class="btn-cancel" onclick="closeVolumeMobileModal()">Fechar</button>
+  </div>
+</div>
+<div id="queue-panel" class="queue-panel hidden">
+  <div class="queue-panel-header">
+    <span>Fila</span>
+    <button onclick="clearQueue()" id="btn-clear-queue" class="queue-clear-btn" data-tip="Limpar fila">
+      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+  </div>
+  <div id="queue-panel-list"></div>
+</div>
 <audio id="audio-el"></audio>
 
 <div id="stats-ctx-menu" class="ctx-menu">
@@ -619,7 +658,7 @@
   </div>
 </div>
 
-<div id="stats-remove-modal" class="hidden">
+<div id="stats-remove-modal" class="hidden" role="dialog" aria-modal="true" aria-label="Remover estatística">
   <div class="confirm-card">
     <h3>Remover estatística</h3>
     <p id="stats-remove-modal-msg">Tem certeza que deseja remover este registro das estatísticas? Esta ação não pode ser desfeita.</p>

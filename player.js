@@ -117,9 +117,18 @@ async function loadSecret(storageKey) {
       iv: new Uint8Array(stored.iv)
     }, key, new Uint8Array(stored.data));
     return new TextDecoder().decode(dec);
-  } catch {
-    return null;
+  } catch (e) {
+    if (e && (e.name === 'OperationError' || e.name === 'DataError')) return null;
+    throw e;
   }
+}
+function _showErrorState(err) {
+  console.error('[loadSecret] Falha ao carregar configurações:', err);
+  const overlay = document.getElementById('error-state');
+  const detail = document.getElementById('error-detail');
+  if (!overlay) return;
+  if (detail) detail.textContent = err ? (err.message || String(err)) : 'Erro desconhecido';
+  overlay.classList.remove('hidden');
 }
 function removeSecret(storageKey) {
   localStorage.removeItem('enc_' + storageKey);
@@ -461,6 +470,10 @@ function _setupLeftClickOnly() {
     if (el) _applyPressedControl(el);
   });
 }
+let _mobileViewNow = false;
+function _isMobile() {
+  return window.matchMedia('(max-width: 768px)').matches;
+}
 async function init() {
   await masterPrompt();
   const setupDone = localStorage.getItem('_setup_done');
@@ -493,6 +506,32 @@ async function init() {
       once: true
     });
   }
+  window.addEventListener('resize', () => {
+    if (!_isMobile()) {
+      _mobileViewNow = false;
+      _applyMobileView();
+    }
+  });
+}
+function toggleMobileView() {
+  if (!_isMobile()) return;
+  _mobileViewNow = !_mobileViewNow;
+  _applyMobileView();
+}
+function _applyMobileView() {
+  const app = document.getElementById('app');
+  const iconList = document.getElementById('mobile-toggle-icon-list');
+  const iconNow = document.getElementById('mobile-toggle-icon-now');
+  if (!app) return;
+  if (_mobileViewNow) {
+    app.classList.add('mobile-view-now');
+    if (iconList) iconList.style.display = 'none';
+    if (iconNow) iconNow.style.display = '';
+  } else {
+    app.classList.remove('mobile-view-now');
+    if (iconList) iconList.style.display = '';
+    if (iconNow) iconNow.style.display = 'none';
+  }
 }
 function switchTab(tab) {
   ['lastfm'].forEach(t => {
@@ -520,16 +559,6 @@ function openSetupOverlay(tab) {
     panel.classList.add('active');
   }
   document.getElementById('settings-panel').classList.add('hidden');
-}
-function closeSetupOverlay() {
-  const overlay = document.getElementById('setup-overlay');
-  if (overlay.classList.contains('hidden') || overlay.classList.contains('modal--closing')) return;
-  overlay.classList.add('modal--closing');
-  setTimeout(() => {
-    overlay.classList.remove('modal--closing');
-    overlay.classList.add('hidden');
-  }, 220);
-
 }
 function _showSetupWarn(tooltipId, textId, msg) {
   const tip = document.getElementById(tooltipId);
@@ -920,7 +949,7 @@ function _batchProcessNext() {
   const title = document.getElementById('modal-title');
   const hint = document.getElementById('modal-hint');
   if (title) title.textContent = remaining > 0 ? `Adicionar música (faltam ${remaining + 1})` : 'Adicionar música';
-  if (hint) hint.textContent = `Arquivo: ${file.name.replace(/\.[^.]+$/, '')}. Cole o link do Spotify ou clique em "Buscar e adicionar" para pular.`;
+  if (hint) hint.textContent = `Arquivo: ${file.name.replace(/\.[^.]+$/, '')}. Cole o link do Spotify ou clique em "Sem Dados" para pular.`;
   document.getElementById('modal-overlay').classList.remove('hidden');
   setTimeout(() => document.getElementById('modal-spotify-url').focus(), 100);
 }
@@ -1036,8 +1065,8 @@ function formatArtist(artist) {
   return artist.replace(/\s+(?:feat\.?|ft\.?|featuring|with)\s+/gi, ', ');
 }
 function renderTrackHTML(t, i, extraStyle = '') {
-  return `<div class="track-item ${i === currentIndex ? 'active' : ''}" onclick="selectTrack(${i})" oncontextmenu="openCtxMenu(event,${i})" onmousedown="trackItemMouseDown(event,${i})" id="ti-${t.id}" data-index="${i}" style="height:${ITEM_H}px;box-sizing:border-box;${extraStyle}">
-    <div class="track-drag-handle" onmousedown="dragHandleMouseDown(event,${i})" onclick="event.stopPropagation()" data-tip="Arrastar para reorganizar">
+  return `<div class="track-item ${i === currentIndex ? 'active' : ''}" onclick="selectTrack(${i},false,false,true)" oncontextmenu="openCtxMenu(event,${i})" onmousedown="trackItemMouseDown(event,${i})" ontouchstart="trackItemTouchStart(event,${i})" id="ti-${t.id}" data-index="${i}" style="height:${ITEM_H}px;box-sizing:border-box;${extraStyle}">
+    <div class="track-drag-handle" onmousedown="dragHandleMouseDown(event,${i})" ontouchstart="dragHandleTouchStart(event,${i})" onclick="event.stopPropagation()" data-tip="Arrastar para reorganizar">
       <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/></svg>
     </div>
     ${t.coverUrl || t.cover ? `<img class="track-cover" src="${t.coverUrl || t.cover}" alt="">` : `<div class="track-cover-placeholder"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg></div>`}
@@ -1169,7 +1198,8 @@ function escHtml(s) {
     '"': '&quot;'
   })[c]);
 }
-function selectTrack(i, fromQueue = false, keepPlaylistContext = false) {
+function selectTrack(i, fromQueue = false, keepPlaylistContext = false, userInitiated = false) {
+  if (_ctxMenuJustClosed && userInitiated) return;
   if (i < 0 || i >= tracks.length) return;
   if (!fromQueue) _preQueueIndex = -1;
   if (!fromQueue && !keepPlaylistContext) _playlistContext = null;
@@ -1338,13 +1368,15 @@ function _buildPlShufflePool(plIds, currentTrackId) {
   }
   return pool;
 }
-function toggleShuffle() {
+function toggleShuffle(e) {
+  if (e) { e.preventDefault(); e.stopPropagation(); }
   isShuffle = !isShuffle;
   _shufflePool = [];
   _plShufflePool = [];
   document.getElementById('btn-shuffle').classList.toggle('active', isShuffle);
 }
-function toggleRepeat() {
+function toggleRepeat(e) {
+  if (e) { e.preventDefault(); e.stopPropagation(); }
   isRepeat = !isRepeat;
   document.getElementById('btn-repeat').classList.toggle('active', isRepeat);
 }
@@ -1478,6 +1510,14 @@ function setupProgressListeners() {
     isSeeking = true;
     lastTimeUpdatePos = null;
   });
+  bar.addEventListener('touchstart', () => {
+    isSeeking = true;
+    lastTimeUpdatePos = null;
+  }, { passive: true });
+  bar.addEventListener('touchend', () => {
+    isSeeking = false;
+    tooltip.classList.remove('visible');
+  }, { passive: true });
   bar.addEventListener('input', () => {
     if (audio.duration) {
       audio.currentTime = bar.value / 100 * audio.duration;
@@ -1494,6 +1534,16 @@ function setupProgressListeners() {
     tooltip.style.top = rect.top - 32 + 'px';
     tooltip.classList.add('visible');
   });
+  bar.addEventListener('touchmove', e => {
+    if (!audio.duration || !e.touches.length) return;
+    const rect = bar.getBoundingClientRect();
+    const pct = Math.max(0, Math.min(1, (e.touches[0].clientX - rect.left) / rect.width));
+    const time = pct * audio.duration;
+    tooltip.textContent = formatTime(time);
+    tooltip.style.left = e.touches[0].clientX + 'px';
+    tooltip.style.top = rect.top - 32 + 'px';
+    tooltip.classList.add('visible');
+  }, { passive: true });
   bar.addEventListener('mouseleave', () => {
     tooltip.classList.remove('visible');
   });
@@ -1555,19 +1605,23 @@ document.addEventListener('keydown', e => {
 });
 function lfmInit() {
   (async () => {
-    lfmApiKey = await loadSecret('lfm_key');
-    lfmApiSecret = await loadSecret('lfm_secret');
-    lfmSessionKey = await loadSecret('lfm_session');
-    lfmUsername = (await loadSecret('lfm_user')) || '';
-    if (lfmApiKey) {
-      const el = document.getElementById('lfm-api-key');
-      if (el) el.value = lfmApiKey;
+    try {
+      lfmApiKey = await loadSecret('lfm_key');
+      lfmApiSecret = await loadSecret('lfm_secret');
+      lfmSessionKey = await loadSecret('lfm_session');
+      lfmUsername = (await loadSecret('lfm_user')) || '';
+      if (lfmApiKey) {
+        const el = document.getElementById('lfm-api-key');
+        if (el) el.value = lfmApiKey;
+      }
+      if (lfmApiSecret) {
+        const el = document.getElementById('lfm-api-secret');
+        if (el) el.value = lfmApiSecret;
+      }
+      lfmUpdateStatusUI();
+    } catch (e) {
+      _showErrorState(e);
     }
-    if (lfmApiSecret) {
-      const el = document.getElementById('lfm-api-secret');
-      if (el) el.value = lfmApiSecret;
-    }
-    lfmUpdateStatusUI();
   })();
 }
 function lfmStatusClick() {
@@ -1608,8 +1662,12 @@ function lfmOpenSettings() {
     panel.classList.add('active');
   }
   (async () => {
-    document.getElementById('lfm-api-key').value = (await loadSecret('lfm_key')) || '';
-    document.getElementById('lfm-api-secret').value = (await loadSecret('lfm_secret')) || '';
+    try {
+      document.getElementById('lfm-api-key').value = (await loadSecret('lfm_key')) || '';
+      document.getElementById('lfm-api-secret').value = (await loadSecret('lfm_secret')) || '';
+    } catch (e) {
+      _showErrorState(e);
+    }
   })();
 }
 function lfmDisconnect() {
@@ -2060,6 +2118,8 @@ function closeCtxMenu() {
   ctxTargetIndex = -1;
   _ctxPlaylistTrackPtId = null;
   closeCtxPlaylistMenu();
+  const ov = document.getElementById('_ctx-dismiss-overlay');
+  if (ov) ov.style.display = 'none';
 }
 function ctxAddToQueue() {
   if (ctxTargetIndex < 0) return;
@@ -2194,6 +2254,24 @@ function clearDatabase() {
 function toggleQueuePanel() {
   const panel = document.getElementById('queue-panel');
   if (panel.classList.contains('hidden')) {
+    const btn = document.getElementById('btn-queue');
+    const rect = btn.getBoundingClientRect();
+    if (_isMobile()) {
+      panel.style.left = '10px';
+      panel.style.right = '10px';
+      panel.style.width = 'auto';
+      panel.style.bottom = (window.innerHeight - rect.top + 8) + 'px';
+      panel.style.top = '';
+    } else {
+      const panelW = 255;
+      let left = rect.right - panelW;
+      if (left < 8) left = 8;
+      panel.style.left = left + 'px';
+      panel.style.right = '';
+      panel.style.width = panelW + 'px';
+      panel.style.bottom = (window.innerHeight - rect.top + 8) + 'px';
+      panel.style.top = '';
+    }
     panel.classList.remove('hidden');
   } else {
     closeQueuePanel();
@@ -2233,7 +2311,7 @@ function removeFromQueue(e, qPos) {
 function playFromQueue(qPos) {
   const trackIdx = queue[qPos];
   queue.splice(qPos, 1);
-  selectTrack(trackIdx);
+  selectTrack(trackIdx, true, false, true);
 }
 function renderQueuePanel() {
   const list = document.getElementById('queue-panel-list');
@@ -2260,13 +2338,16 @@ function renderQueuePanel() {
   list.innerHTML = queue.map((trackIdx, qPos) => {
     const t = tracks[trackIdx];
     if (!t) return '';
-    return `<div class="queue-panel-item" data-qpos="${qPos}" onmousedown="queueItemMouseDown(event,${qPos})" onclick="playFromQueue(${qPos})">
-      <span class="qp-num">${qPos + 1}</span>
-      ${t.coverUrl || t.cover ? `<img class="qp-cover" src="${t.coverUrl || t.cover}" alt="">` : `<div class="qp-cover-ph"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg></div>`}
-      <div class="qp-info"><div class="qp-name">${escHtml(t.name)}</div><div class="qp-artist">${escHtml(formatArtist(t.artist))}</div></div>
-      <button class="qp-remove" onclick="removeFromQueue(event,${qPos})" data-tip="Remover da fila">
-        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-      </button>
+    return `<div class="queue-panel-item" data-qpos="${qPos}" onmousedown="queueItemMouseDown(event,${qPos})" ontouchstart="queueItemTouchStart(event,${qPos})" onclick="playFromQueue(${qPos})">
+      <div class="qp-swipe-bg"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></div>
+      <div class="qp-swipe-inner">
+        <span class="qp-num">${qPos + 1}</span>
+        ${t.coverUrl || t.cover ? `<img class="qp-cover" src="${t.coverUrl || t.cover}" alt="">` : `<div class="qp-cover-ph"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg></div>`}
+        <div class="qp-info"><div class="qp-name">${escHtml(t.name)}</div><div class="qp-artist">${escHtml(formatArtist(t.artist))}</div></div>
+        <button class="qp-remove" onclick="removeFromQueue(event,${qPos})" data-tip="Remover da fila">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
     </div>`;
   }).join('');
 }
@@ -2298,6 +2379,138 @@ function queueItemMouseDown(e, qPos) {
   _qDragLeftItem = false;
   document.addEventListener('mousemove', _onQPendingMouseMove);
   document.addEventListener('mouseup', _onQPendingMouseUp);
+}
+function queueItemTouchStart(e, qPos) {
+  if (e.target.closest('.qp-drag-handle')) return;
+  const t = e.touches[0];
+  _qDragPending = true;
+  _qDragPendingPos = qPos;
+  _qDragStartX = t.clientX;
+  _qDragStartY = t.clientY;
+  _qDragLeftItem = false;
+  _qSwipeActive = false;
+  _qSwipeEl = null;
+  document.addEventListener('touchmove', _onQPendingTouchMove, { passive: false });
+  document.addEventListener('touchend', _onQPendingTouchEnd);
+  document.addEventListener('touchcancel', _onQPendingTouchEnd);
+}
+let _qSwipeActive = false;
+let _qSwipeEl = null;
+const Q_SWIPE_REMOVE_THRESHOLD = 80;
+
+function _onQPendingTouchMove(e) {
+  if (!_qDragPending || !e.touches.length) return;
+  const t = e.touches[0];
+  const dx = t.clientX - _qDragStartX;
+  const dy = t.clientY - _qDragStartY;
+  const adx = Math.abs(dx);
+  const ady = Math.abs(dy);
+  if (adx < Q_DRAG_THRESHOLD && ady < Q_DRAG_THRESHOLD) return;
+  e.preventDefault();
+  _qDragPending = false;
+  document.removeEventListener('touchmove', _onQPendingTouchMove);
+  document.removeEventListener('touchend', _onQPendingTouchEnd);
+  document.removeEventListener('touchcancel', _onQPendingTouchEnd);
+  if (adx > ady && dx < 0) {
+    _qSwipeActive = true;
+    _qSwipeEl = document.querySelector(`#queue-panel-list .queue-panel-item[data-qpos="${_qDragPendingPos}"]`);
+    document.addEventListener('touchmove', _onQSwipeTouchMove, { passive: false });
+    document.addEventListener('touchend', _onQSwipeTouchEnd);
+    document.addEventListener('touchcancel', _onQSwipeTouchEnd);
+  } else if (ady > adx) {
+    _qDragLeftItem = true;
+    _qInitDrag(_qDragPendingPos);
+    document.addEventListener('touchmove', _onQDragTouchMove, { passive: false });
+    document.addEventListener('touchend', _onQDragTouchEnd);
+    document.addEventListener('touchcancel', _onQDragTouchEnd);
+  }
+}
+
+function _onQSwipeTouchMove(e) {
+  if (!_qSwipeActive || !_qSwipeEl || !e.touches.length) return;
+  e.preventDefault();
+  const t = e.touches[0];
+  const dx = Math.min(0, t.clientX - _qDragStartX);
+  const inner = _qSwipeEl.querySelector('.qp-swipe-inner');
+  const bg = _qSwipeEl.querySelector('.qp-swipe-bg');
+  if (inner) inner.style.transform = `translateX(${dx}px)`;
+  if (bg) bg.style.opacity = Math.min(1, Math.abs(dx) / Q_SWIPE_REMOVE_THRESHOLD);
+}
+
+function _onQSwipeTouchEnd(e) {
+  document.removeEventListener('touchmove', _onQSwipeTouchMove);
+  document.removeEventListener('touchend', _onQSwipeTouchEnd);
+  document.removeEventListener('touchcancel', _onQSwipeTouchEnd);
+  if (!_qSwipeActive || !_qSwipeEl) { _qSwipeActive = false; _qSwipeEl = null; return; }
+  const touch = e.changedTouches[0];
+  const dx = touch.clientX - _qDragStartX;
+  const qPos = parseInt(_qSwipeEl.dataset.qpos);
+  const inner = _qSwipeEl.querySelector('.qp-swipe-inner');
+  const bg = _qSwipeEl.querySelector('.qp-swipe-bg');
+  if (dx < -Q_SWIPE_REMOVE_THRESHOLD) {
+    if (inner) { inner.style.transition = 'transform 0.2s ease'; inner.style.transform = `translateX(-110%)`; }
+    if (bg) { bg.style.transition = 'opacity 0.2s ease'; bg.style.opacity = '1'; }
+    setTimeout(() => {
+      queue.splice(qPos, 1);
+      renderQueuePanel();
+      renderList();
+    }, 200);
+  } else {
+    if (inner) { inner.style.transition = 'transform 0.22s cubic-bezier(0.34,1.4,0.64,1)'; inner.style.transform = ''; }
+    if (bg) { bg.style.transition = 'opacity 0.22s ease'; bg.style.opacity = '0'; }
+    setTimeout(() => {
+      if (inner) { inner.style.transition = ''; }
+      if (bg) { bg.style.transition = ''; }
+    }, 220);
+  }
+  _qSwipeActive = false;
+  _qSwipeEl = null;
+}
+function _onQPendingTouchEnd(e) {
+  _qDragPending = false;
+  _qDragPendingPos = -1;
+  document.removeEventListener('touchmove', _onQPendingTouchMove);
+  document.removeEventListener('touchend', _onQPendingTouchEnd);
+  document.removeEventListener('touchcancel', _onQPendingTouchEnd);
+}
+function _onQDragTouchMove(e) {
+  if (!_qDragActive || !e.touches.length) return;
+  e.preventDefault();
+  const t = e.touches[0];
+  _autoScrollUpdate(t.clientY);
+  document.querySelectorAll('.qp-drag-over-top,.qp-drag-over-bottom').forEach(el => el.classList.remove('qp-drag-over-top', 'qp-drag-over-bottom'));
+  const target = _qGetItemAtY(t.clientY);
+  if (!target) return;
+  const ti = parseInt(target.dataset.qpos);
+  if (ti === _qDragSrc) return;
+  const rect = target.getBoundingClientRect();
+  target.classList.add(t.clientY < rect.top + rect.height / 2 ? 'qp-drag-over-top' : 'qp-drag-over-bottom');
+}
+function _onQDragTouchEnd(e) {
+  if (!_qDragActive) return;
+  _qDragActive = false;
+  _autoScrollStop();
+  document.removeEventListener('touchmove', _onQDragTouchMove);
+  document.removeEventListener('touchend', _onQDragTouchEnd);
+  document.removeEventListener('touchcancel', _onQDragTouchEnd);
+  if (_qDragEl) _qDragEl.classList.remove('qp-dragging');
+  _qDragEl = null;
+  document.querySelectorAll('.qp-drag-over-top,.qp-drag-over-bottom').forEach(el => el.classList.remove('qp-drag-over-top', 'qp-drag-over-bottom'));
+  if (_qDragSrc < 0) return;
+  const touch = e.changedTouches[0];
+  const target = _qGetItemAtY(touch.clientY);
+  if (!target) { _qDragSrc = -1; return; }
+  const ti = parseInt(target.dataset.qpos);
+  if (ti === _qDragSrc) { _qDragSrc = -1; return; }
+  const rect = target.getBoundingClientRect();
+  const before = touch.clientY < rect.top + rect.height / 2;
+  const moved = queue.splice(_qDragSrc, 1)[0];
+  let insertAt = ti;
+  if (_qDragSrc < ti) insertAt = ti - 1;
+  if (!before) insertAt += 1;
+  queue.splice(insertAt, 0, moved);
+  _qDragSrc = -1;
+  renderQueuePanel();
 }
 function _onQPendingMouseMove(e) {
   if (!_qDragPending) return;
@@ -2404,6 +2617,14 @@ function dragHandleMouseDown(e, index) {
   document.addEventListener('mousemove', _onDragMouseMove);
   document.addEventListener('mouseup', _onDragMouseUp);
 }
+function dragHandleTouchStart(e, index) {
+  e.stopPropagation();
+  _dragPending = false;
+  _initDrag(index);
+  document.addEventListener('touchmove', _onDragTouchMove, { passive: false });
+  document.addEventListener('touchend', _onDragTouchEnd);
+  document.addEventListener('touchcancel', _onDragTouchEnd);
+}
 function trackItemMouseDown(e, index) {
   if (e.target.closest('.track-drag-handle')) return;
   if (e.button !== 0) return;
@@ -2414,6 +2635,118 @@ function trackItemMouseDown(e, index) {
   _dragLeftItem = false;
   document.addEventListener('mousemove', _onPendingMouseMove);
   document.addEventListener('mouseup', _onPendingMouseUp);
+}
+function trackItemTouchStart(e, index) {
+  if (e.target.closest('.track-drag-handle')) return;
+  const t = e.touches[0];
+  _dragPending = true;
+  _dragPendingIndex = index;
+  _dragStartX = t.clientX;
+  _dragStartY = t.clientY;
+  _dragLeftItem = false;
+  _trackSwipeActive = false;
+  _trackSwipeEl = null;
+  document.addEventListener('touchmove', _onPendingTouchMove, { passive: false });
+  document.addEventListener('touchend', _onPendingTouchEnd);
+  document.addEventListener('touchcancel', _onPendingTouchEnd);
+}
+let _trackSwipeActive = false;
+let _trackSwipeEl = null;
+const TRACK_SWIPE_ADD_THRESHOLD = 80;
+function _onPendingTouchMove(e) {
+  if (!_dragPending || !e.touches.length) return;
+  const t = e.touches[0];
+  const dx = t.clientX - _dragStartX;
+  const dy = t.clientY - _dragStartY;
+  const adx = Math.abs(dx);
+  const ady = Math.abs(dy);
+  if (adx < DRAG_THRESHOLD && ady < DRAG_THRESHOLD) return;
+  e.preventDefault();
+  _dragPending = false;
+  document.removeEventListener('touchmove', _onPendingTouchMove);
+  document.removeEventListener('touchend', _onPendingTouchEnd);
+  document.removeEventListener('touchcancel', _onPendingTouchEnd);
+  if (adx > ady && dx > 0) {
+    _trackSwipeActive = true;
+    _trackSwipeEl = document.getElementById(`ti-${tracks[_dragPendingIndex]?.id}`);
+    if (_trackSwipeEl && !_trackSwipeEl.querySelector('.track-swipe-bg')) {
+      const bg = document.createElement('div');
+      bg.className = 'track-swipe-bg';
+      bg.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>`;
+      _trackSwipeEl.insertBefore(bg, _trackSwipeEl.firstChild);
+      const inner = document.createElement('div');
+      inner.className = 'track-swipe-inner';
+      while (_trackSwipeEl.children.length > 1) inner.appendChild(_trackSwipeEl.children[1]);
+      _trackSwipeEl.appendChild(inner);
+    }
+    document.addEventListener('touchmove', _onTrackSwipeTouchMove, { passive: false });
+    document.addEventListener('touchend', _onTrackSwipeTouchEnd);
+    document.addEventListener('touchcancel', _onTrackSwipeTouchEnd);
+  } else if (ady > adx) {
+    _dragLeftItem = true;
+    _initDrag(_dragPendingIndex);
+    document.addEventListener('touchmove', _onDragTouchMove, { passive: false });
+    document.addEventListener('touchend', _onDragTouchEnd);
+    document.addEventListener('touchcancel', _onDragTouchEnd);
+  }
+}
+function _onTrackSwipeTouchMove(e) {
+  if (!_trackSwipeActive || !_trackSwipeEl || !e.touches.length) return;
+  e.preventDefault();
+  const t = e.touches[0];
+  const dx = Math.max(0, t.clientX - _dragStartX);
+  const inner = _trackSwipeEl.querySelector('.track-swipe-inner');
+  const bg = _trackSwipeEl.querySelector('.track-swipe-bg');
+  if (inner) inner.style.transform = `translateX(${dx}px)`;
+  if (bg) bg.style.opacity = Math.min(1, dx / TRACK_SWIPE_ADD_THRESHOLD);
+}
+function _onTrackSwipeTouchEnd(e) {
+  document.removeEventListener('touchmove', _onTrackSwipeTouchMove);
+  document.removeEventListener('touchend', _onTrackSwipeTouchEnd);
+  document.removeEventListener('touchcancel', _onTrackSwipeTouchEnd);
+  if (!_trackSwipeActive || !_trackSwipeEl) { _trackSwipeActive = false; _trackSwipeEl = null; return; }
+  const touch = e.changedTouches[0];
+  const dx = touch.clientX - _dragStartX;
+  const idx = _dragPendingIndex;
+  const inner = _trackSwipeEl.querySelector('.track-swipe-inner');
+  const bg = _trackSwipeEl.querySelector('.track-swipe-bg');
+  const resetSwipe = () => {
+    if (inner) { inner.style.transition = 'transform 0.22s cubic-bezier(0.34,1.4,0.64,1)'; inner.style.transform = ''; }
+    if (bg) { bg.style.transition = 'opacity 0.22s ease'; bg.style.opacity = '0'; }
+    setTimeout(() => {
+      if (_trackSwipeEl) {
+        const bgEl = _trackSwipeEl.querySelector('.track-swipe-bg');
+        const innerEl = _trackSwipeEl.querySelector('.track-swipe-inner');
+        if (bgEl && innerEl) {
+          while (innerEl.firstChild) _trackSwipeEl.insertBefore(innerEl.firstChild, bgEl);
+          bgEl.remove();
+          innerEl.remove();
+        }
+      }
+    }, 230);
+  };
+  if (dx > TRACK_SWIPE_ADD_THRESHOLD) {
+    if (inner) { inner.style.transition = 'transform 0.18s ease'; inner.style.transform = `translateX(110%)`; }
+    if (bg) { bg.style.opacity = '1'; }
+    setTimeout(() => {
+      queue.push(idx);
+      toast(`"${tracks[idx]?.name}" adicionada à fila!`);
+      renderQueuePanel();
+      renderList();
+      resetSwipe();
+    }, 180);
+  } else {
+    resetSwipe();
+  }
+  _trackSwipeActive = false;
+  _trackSwipeEl = null;
+}
+function _onPendingTouchEnd(e) {
+  _dragPending = false;
+  _dragPendingIndex = -1;
+  document.removeEventListener('touchmove', _onPendingTouchMove);
+  document.removeEventListener('touchend', _onPendingTouchEnd);
+  document.removeEventListener('touchcancel', _onPendingTouchEnd);
 }
 function _onPendingMouseMove(e) {
   if (!_dragPending) return;
@@ -2552,6 +2885,55 @@ function _onDragMouseUp(e) {
   dragSrcIndex = -1;
   renderList();
 }
+function _onDragTouchMove(e) {
+  if (!_dragActive || !e.touches.length) return;
+  e.preventDefault();
+  const t = e.touches[0];
+  _autoScrollUpdate(t.clientY);
+  document.querySelectorAll('.drag-over-top,.drag-over-bottom').forEach(el => el.classList.remove('drag-over-top', 'drag-over-bottom'));
+  const target = _getItemAtY(t.clientY);
+  if (!target) return;
+  const ti = parseInt(target.dataset.index);
+  if (ti === dragSrcIndex) return;
+  const rect = target.getBoundingClientRect();
+  target.classList.add(t.clientY < rect.top + rect.height / 2 ? 'drag-over-top' : 'drag-over-bottom');
+}
+function _onDragTouchEnd(e) {
+  if (!_dragActive) return;
+  _dragActive = false;
+  _autoScrollStop();
+  document.removeEventListener('touchmove', _onDragTouchMove);
+  document.removeEventListener('touchend', _onDragTouchEnd);
+  document.removeEventListener('touchcancel', _onDragTouchEnd);
+  if (_dragEl) _dragEl.classList.remove('dragging');
+  _dragEl = null;
+  document.querySelectorAll('.drag-over-top,.drag-over-bottom').forEach(el => el.classList.remove('drag-over-top', 'drag-over-bottom'));
+  if (dragSrcIndex < 0) return;
+  const touch = e.changedTouches[0];
+  const target = _getItemAtY(touch.clientY);
+  if (!target) { dragSrcIndex = -1; return; }
+  const ti = parseInt(target.dataset.index);
+  if (ti === dragSrcIndex) { dragSrcIndex = -1; return; }
+  const rect = target.getBoundingClientRect();
+  const before = touch.clientY < rect.top + rect.height / 2;
+  const currentId = currentIndex >= 0 ? tracks[currentIndex]?.id : null;
+  const moved = tracks.splice(dragSrcIndex, 1)[0];
+  let insertAt = ti;
+  if (dragSrcIndex < ti) insertAt = ti - 1;
+  if (!before) insertAt += 1;
+  tracks.splice(insertAt, 0, moved);
+  tracks.forEach((t, idx) => { t.order = idx; saveTrack(t); });
+  if (currentId) currentIndex = tracks.findIndex(t => t.id === currentId);
+  queue = queue.map(qi => {
+    if (qi === dragSrcIndex) return insertAt;
+    let n = qi;
+    if (dragSrcIndex < n) n--;
+    if (insertAt <= n && dragSrcIndex > qi) n++;
+    return n;
+  });
+  dragSrcIndex = -1;
+  renderList();
+}
 function toggleSettingsPanel(forceOpen) {
   const panel = document.getElementById('settings-panel');
   const btn = document.getElementById('btn-gear');
@@ -2561,9 +2943,13 @@ function toggleSettingsPanel(forceOpen) {
     return;
   }
   (async () => {
-    document.getElementById('cfg-lfm-key').value = (await loadSecret('lfm_key')) || '';
-    document.getElementById('cfg-lfm-secret').value = (await loadSecret('lfm_secret')) || '';
-    updateSettingsLfmRow();
+    try {
+      document.getElementById('cfg-lfm-key').value = (await loadSecret('lfm_key')) || '';
+      document.getElementById('cfg-lfm-secret').value = (await loadSecret('lfm_secret')) || '';
+      updateSettingsLfmRow();
+    } catch (e) {
+      _showErrorState(e);
+    }
   })();
   panel.classList.remove('hidden');
   btn.classList.add('active');
@@ -2681,18 +3067,130 @@ function updateSettingsLfmRow() {
     if (e.target.closest('[data-tip]')) tip.classList.remove('visible');
   });
   document.addEventListener('click', () => tip.classList.remove('visible'));
+  let _touchTipTimer = null;
+  document.addEventListener('touchstart', e => {
+    const el = e.target.closest('[data-tip]');
+    if (_touchTipTimer) { clearTimeout(_touchTipTimer); _touchTipTimer = null; }
+    tip.classList.remove('visible');
+    if (!el) return;
+    if (el.classList.contains('track-name') && el.scrollWidth <= el.clientWidth) return;
+    const t = e.touches[0];
+    const fakeE = { clientX: t.clientX, clientY: t.clientY };
+    showTip(fakeE, el.dataset.tip);
+  }, { passive: true });
+  document.addEventListener('touchend', () => {
+    _touchTipTimer = setTimeout(() => { tip.classList.remove('visible'); _touchTipTimer = null; }, 1000);
+  }, { passive: true });
   const hideBothTips = () => {
     tip.classList.remove('visible');
     document.getElementById('progress-tooltip')?.classList.remove('visible');
   };
   window.addEventListener('scroll', hideBothTips, true);
 })();
+let _longPressTimer = null;
+let _longPressActive = false;
+document.addEventListener('touchstart', e => {
+  const item = e.target.closest('.track-item[data-index]');
+  if (!item) return;
+  _longPressActive = false;
+  const touch = e.touches[0];
+  const idx = parseInt(item.dataset.index, 10);
+  _longPressTimer = setTimeout(() => {
+    _longPressActive = true;
+    const menu = document.getElementById('ctx-menu');
+    delete menu.dataset.playlistMode;
+    _applyCtxMenuPlaylistMode(false);
+    ctxTargetIndex = idx;
+    const t = tracks[idx];
+    const isNoData = t && t.noData;
+    const addDataItem = document.getElementById('ctx-item-adddata');
+    const addDataSep = document.getElementById('ctx-sep-adddata');
+    if (addDataItem) addDataItem.style.display = isNoData ? '' : 'none';
+    if (addDataSep) addDataSep.style.display = isNoData ? '' : 'none';
+    menu.classList.add('visible');
+    _positionCtxMenu(menu, touch.clientX, touch.clientY);
+    _ctxOverlay.style.display = 'block';
+  }, 500);
+}, { passive: true });
+document.addEventListener('touchend', () => {
+  if (_longPressTimer) { clearTimeout(_longPressTimer); _longPressTimer = null; }
+}, { passive: true });
+document.addEventListener('touchmove', () => {
+  if (_longPressTimer) { clearTimeout(_longPressTimer); _longPressTimer = null; }
+}, { passive: true });
+let _ctxMenuJustClosed = false;
+
+const _ctxOverlay = document.createElement('div');
+_ctxOverlay.id = '_ctx-dismiss-overlay';
+_ctxOverlay.style.cssText = 'position:fixed;inset:0;z-index:9998;display:none;';
+_ctxOverlay.addEventListener('touchstart', e => {
+  e.preventDefault();
+  e.stopPropagation();
+  closeCtxMenu();
+  _ctxOverlay.style.display = 'none';
+  _longPressActive = false;
+  _ctxMenuJustClosed = true;
+  setTimeout(() => { _ctxMenuJustClosed = false; }, 600);
+}, { passive: false });
+_ctxOverlay.addEventListener('click', e => {
+  e.preventDefault();
+  e.stopPropagation();
+}, true);
+document.body.appendChild(_ctxOverlay);
+
+document.addEventListener('touchstart', e => {
+  if (!_longPressActive) return;
+  _longPressActive = false;
+  if (!document.getElementById('ctx-menu').contains(e.target)) {
+    closeCtxMenu();
+    _ctxOverlay.style.display = 'none';
+  }
+}, { passive: true });
+function openVolumeMobileModal() {
+  const modal = document.getElementById('volume-mobile-modal');
+  const slider = document.getElementById('volume-mobile-slider');
+  const pct = document.getElementById('volume-mobile-pct');
+  const vol = isMuted ? 0 : Math.round((parseFloat(document.getElementById('volume-slider').value) || 100));
+  slider.value = vol;
+  pct.textContent = vol + '%';
+  slider.style.setProperty('--vol', vol + '%');
+  modal.classList.remove('hidden');
+  const card = modal.querySelector('.volume-mobile-modal-card');
+  if (card) card.classList.remove('closing');
+  const onInput = () => {
+    const v = parseInt(slider.value, 10);
+    pct.textContent = v + '%';
+    slider.style.setProperty('--vol', v + '%');
+    const volSlider = document.getElementById('volume-slider');
+    if (volSlider) { volSlider.value = v; volSlider.dispatchEvent(new Event('input')); }
+    if (isMuted && v > 0) toggleMute();
+    audio.volume = v / 100;
+  };
+  slider._volHandler = onInput;
+  slider.addEventListener('input', onInput);
+  modal._bgHandler = e => { if (e.target === modal) closeVolumeMobileModal(); };
+  modal.addEventListener('touchstart', modal._bgHandler, { passive: true });
+}
+function closeVolumeMobileModal() {
+  const modal = document.getElementById('volume-mobile-modal');
+  const slider = document.getElementById('volume-mobile-slider');
+  const card = modal.querySelector('.volume-mobile-modal-card');
+  if (slider._volHandler) { slider.removeEventListener('input', slider._volHandler); slider._volHandler = null; }
+  if (modal._bgHandler) { modal.removeEventListener('touchstart', modal._bgHandler); modal._bgHandler = null; }
+  if (card) {
+    card.classList.add('closing');
+    setTimeout(() => { modal.classList.add('hidden'); card.classList.remove('closing'); }, 200);
+  } else {
+    modal.classList.add('hidden');
+  }
+}
 document.addEventListener('click', e => {
   if (!document.getElementById('ctx-menu').contains(e.target)) closeCtxMenu();
   const ctxPl = document.getElementById('ctx-playlist-menu');
   if (ctxPl && !ctxPl.contains(e.target)) closeCtxPlaylistMenu();
   const qw = document.querySelector('.queue-btn-wrap');
-  if (qw && !qw.contains(e.target)) closeQueuePanel();
+  const qp = document.getElementById('queue-panel');
+  if (qw && !qw.contains(e.target) && qp && !qp.contains(e.target)) closeQueuePanel();
   const sw = document.getElementById('settings-wrap');
   if (sw && !sw.contains(e.target)) closeSettingsPanel();
   const fp = document.getElementById('file-picker-overlay');
@@ -2718,6 +3216,8 @@ document.addEventListener('keydown', e => {
     closeRemoveFromPlaylistModal();
     closeAddToPlaylistModal();
     closeStatsModal();
+    closeCreatePlaylistModal();
+    closeEditPlaylistModal();
   }
 });
 let currentLibraryView = 'library';
@@ -3026,7 +3526,7 @@ function renderPlaylistTracks() {
     if (!t) return '';
     const isActive = currentIndex >= 0 && tracks[currentIndex]?.id === t.id;
     const coverHtml = t.coverUrl || t.cover ? `<img class="track-cover" src="${t.coverUrl || t.cover}" alt="">` : `<div class="track-cover-placeholder"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg></div>`;
-    return `<div class="pl-track-item${isActive ? ' active' : ''}" data-ptid="${escHtml(pt.id)}" data-vi="${vi}" onmousedown="plTrackMouseDown(event,'${escHtml(pt.id)}',${vi})" onclick="selectTrackById('${escHtml(t.id)}')" oncontextmenu="openCtxPlaylistTrackMenu(event,'${escHtml(pt.id)}')">
+    return `<div class="pl-track-item${isActive ? ' active' : ''}" data-ptid="${escHtml(pt.id)}" data-vi="${vi}" onmousedown="plTrackMouseDown(event,'${escHtml(pt.id)}',${vi})" ontouchstart="plTrackTouchStart(event,'${escHtml(pt.id)}',${vi})" onclick="selectTrackById('${escHtml(t.id)}')" oncontextmenu="openCtxPlaylistTrackMenu(event,'${escHtml(pt.id)}')">
       <div class="pl-track-drag-handle" onmousedown="plDragHandleDown(event,'${escHtml(pt.id)}',${vi})" onclick="event.stopPropagation()">
         <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/></svg>
       </div>
@@ -3055,10 +3555,11 @@ function _updatePlayingPlaylistCard() {
   });
 }
 function selectTrackById(trackId) {
+  if (_ctxMenuJustClosed) return;
   const idx = tracks.findIndex(t => t.id === trackId);
   if (idx < 0) return;
   _playlistContext = currentPlaylistId || null;
-  selectTrack(idx, false, true);
+  selectTrack(idx, false, true, true);
 }
 function _getPlaylistTrackIds() {
   if (!_playlistContext) return null;
@@ -3434,6 +3935,14 @@ function plDragHandleDown(e, ptId, vi) {
   document.addEventListener('mousemove', _onPlDragMove);
   document.addEventListener('mouseup', _onPlDragUp);
 }
+function plDragHandleTouchStart(e, ptId, vi) {
+  e.stopPropagation();
+  _plDragPending = false;
+  _plInitDrag(ptId, vi);
+  document.addEventListener('touchmove', _onPlDragTouchMove, { passive: false });
+  document.addEventListener('touchend', _onPlDragTouchEnd);
+  document.addEventListener('touchcancel', _onPlDragTouchEnd);
+}
 function plTrackMouseDown(e, ptId, vi) {
   if (e.target.closest('.pl-track-drag-handle')) return;
   if (e.button !== 0) return;
@@ -3444,6 +3953,207 @@ function plTrackMouseDown(e, ptId, vi) {
   _plDragLeftItem = false;
   document.addEventListener('mousemove', _onPlPendingMove);
   document.addEventListener('mouseup', _onPlPendingUp);
+}
+let _plSwipeActive = false;
+let _plSwipeEl = null;
+let _plSwipePtId = null;
+let _plSwipeVi = -1;
+const PL_SWIPE_THRESHOLD = 80;
+
+function plTrackTouchStart(e, ptId, vi) {
+  if (e.target.closest('.pl-track-drag-handle')) return;
+  const t = e.touches[0];
+  _plDragPending = true;
+  _plDragPendingIdx = vi;
+  _plSwipePtId = ptId;
+  _plSwipeVi = vi;
+  _plDragStartX = t.clientX;
+  _plDragStartY = t.clientY;
+  _plDragLeftItem = false;
+  _plSwipeActive = false;
+  _plSwipeEl = null;
+  document.addEventListener('touchmove', _onPlPendingTouchMove, { passive: false });
+  document.addEventListener('touchend', _onPlPendingTouchEnd);
+  document.addEventListener('touchcancel', _onPlPendingTouchEnd);
+}
+
+function _plEnsureSwipeStructure(el) {
+  if (el.querySelector('.pl-swipe-inner')) return;
+  const bgLeft = document.createElement('div');
+  bgLeft.className = 'pl-swipe-bg-left';
+  bgLeft.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>`;
+  const bgRight = document.createElement('div');
+  bgRight.className = 'pl-swipe-bg-right';
+  bgRight.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>`;
+  const inner = document.createElement('div');
+  inner.className = 'pl-swipe-inner';
+  while (el.firstChild) inner.appendChild(el.firstChild);
+  el.appendChild(bgLeft);
+  el.appendChild(bgRight);
+  el.appendChild(inner);
+}
+
+function _plRemoveSwipeStructure(el) {
+  const inner = el.querySelector('.pl-swipe-inner');
+  const bgL = el.querySelector('.pl-swipe-bg-left');
+  const bgR = el.querySelector('.pl-swipe-bg-right');
+  if (inner) { while (inner.firstChild) el.insertBefore(inner.firstChild, bgL || bgR || null); }
+  if (bgL) bgL.remove();
+  if (bgR) bgR.remove();
+  if (inner) inner.remove();
+}
+
+function _onPlPendingTouchMove(e) {
+  if (!_plDragPending || !e.touches.length) return;
+  const t = e.touches[0];
+  const dx = t.clientX - _plDragStartX;
+  const dy = t.clientY - _plDragStartY;
+  const adx = Math.abs(dx);
+  const ady = Math.abs(dy);
+  if (adx < 5 && ady < 5) return;
+  e.preventDefault();
+  _plDragPending = false;
+  document.removeEventListener('touchmove', _onPlPendingTouchMove);
+  document.removeEventListener('touchend', _onPlPendingTouchEnd);
+  document.removeEventListener('touchcancel', _onPlPendingTouchEnd);
+
+  if (adx > ady) {
+    _plSwipeActive = true;
+    _plSwipeEl = document.querySelector(`#playlist-tracks-list .pl-track-item[data-ptid="${_plSwipePtId}"]`);
+    if (_plSwipeEl) _plEnsureSwipeStructure(_plSwipeEl);
+    document.addEventListener('touchmove', _onPlSwipeTouchMove, { passive: false });
+    document.addEventListener('touchend', _onPlSwipeTouchEnd);
+    document.addEventListener('touchcancel', _onPlSwipeTouchEnd);
+  } else {
+    _plDragLeftItem = true;
+    const el = document.querySelector(`#playlist-tracks-list .pl-track-item[data-vi="${_plDragPendingIdx}"]`);
+    if (el) _plInitDrag(el.dataset.ptid, _plDragPendingIdx);
+    document.addEventListener('touchmove', _onPlDragTouchMove, { passive: false });
+    document.addEventListener('touchend', _onPlDragTouchEnd);
+    document.addEventListener('touchcancel', _onPlDragTouchEnd);
+  }
+}
+
+function _onPlSwipeTouchMove(e) {
+  if (!_plSwipeActive || !_plSwipeEl || !e.touches.length) return;
+  e.preventDefault();
+  const t = e.touches[0];
+  const dx = t.clientX - _plDragStartX;
+  const inner = _plSwipeEl.querySelector('.pl-swipe-inner');
+  const bgL = _plSwipeEl.querySelector('.pl-swipe-bg-left');
+  const bgR = _plSwipeEl.querySelector('.pl-swipe-bg-right');
+  if (inner) inner.style.transform = `translateX(${dx}px)`;
+  if (dx < 0) {
+    if (bgL) bgL.style.opacity = Math.min(1, Math.abs(dx) / PL_SWIPE_THRESHOLD);
+    if (bgR) bgR.style.opacity = '0';
+  } else {
+    if (bgR) bgR.style.opacity = Math.min(1, dx / PL_SWIPE_THRESHOLD);
+    if (bgL) bgL.style.opacity = '0';
+  }
+}
+
+function _onPlSwipeTouchEnd(e) {
+  document.removeEventListener('touchmove', _onPlSwipeTouchMove);
+  document.removeEventListener('touchend', _onPlSwipeTouchEnd);
+  document.removeEventListener('touchcancel', _onPlSwipeTouchEnd);
+  if (!_plSwipeActive || !_plSwipeEl) { _plSwipeActive = false; _plSwipeEl = null; return; }
+  const touch = e.changedTouches[0];
+  const dx = touch.clientX - _plDragStartX;
+  const inner = _plSwipeEl.querySelector('.pl-swipe-inner');
+  const bgL = _plSwipeEl.querySelector('.pl-swipe-bg-left');
+  const bgR = _plSwipeEl.querySelector('.pl-swipe-bg-right');
+
+  const resetSwipe = () => {
+    if (inner) { inner.style.transition = 'transform 0.22s cubic-bezier(0.34,1.4,0.64,1)'; inner.style.transform = ''; }
+    if (bgL) { bgL.style.transition = 'opacity 0.22s ease'; bgL.style.opacity = '0'; }
+    if (bgR) { bgR.style.transition = 'opacity 0.22s ease'; bgR.style.opacity = '0'; }
+    setTimeout(() => { if (_plSwipeEl) _plRemoveSwipeStructure(_plSwipeEl); }, 230);
+  };
+
+  if (dx < -PL_SWIPE_THRESHOLD) {
+    if (inner) { inner.style.transition = 'transform 0.18s ease'; inner.style.transform = 'translateX(-110%)'; }
+    if (bgL) bgL.style.opacity = '1';
+    const ptId = _plSwipePtId;
+    const el = _plSwipeEl;
+    setTimeout(() => {
+      if (el) { el.style.transition = 'max-height 0.22s ease, opacity 0.18s ease, margin 0.22s ease'; el.style.maxHeight = el.offsetHeight + 'px'; el.style.overflow = 'hidden'; requestAnimationFrame(() => { el.style.maxHeight = '0'; el.style.opacity = '0'; el.style.marginBottom = '0'; }); }
+      setTimeout(() => {
+        const ptObj = playlistTracks.find(p => p.id === ptId);
+        const tObj = ptObj ? tracks.find(tr => tr.id === ptObj.trackId) : null;
+        _removeFromPlaylistPtId = ptId;
+        confirmRemoveTrackFromPlaylist();
+        if (tObj) toast(`"${tObj.name}" removida da playlist`);
+      }, 220);
+    }, 160);
+  } else if (dx > PL_SWIPE_THRESHOLD) {
+    if (inner) { inner.style.transition = 'transform 0.18s ease'; inner.style.transform = 'translateX(110%)'; }
+    if (bgR) bgR.style.opacity = '1';
+    setTimeout(() => {
+      const ptObj = playlistTracks.find(p => p.id === _plSwipePtId);
+      if (ptObj) {
+        const idx = tracks.findIndex(tr => tr.id === ptObj.trackId);
+        if (idx >= 0) { queue.push(idx); toast(`"${tracks[idx]?.name}" adicionada à fila!`); renderQueuePanel(); renderList(); }
+      }
+      resetSwipe();
+    }, 180);
+  } else {
+    resetSwipe();
+  }
+  _plSwipeActive = false;
+  _plSwipeEl = null;
+}
+
+function _onPlPendingTouchEnd(e) {
+  _plDragPending = false;
+  document.removeEventListener('touchmove', _onPlPendingTouchMove);
+  document.removeEventListener('touchend', _onPlPendingTouchEnd);
+  document.removeEventListener('touchcancel', _onPlPendingTouchEnd);
+}
+function _onPlDragTouchMove(e) {
+  if (!_plDragActive || !e.touches.length) return;
+  e.preventDefault();
+  const t = e.touches[0];
+  document.querySelectorAll('.pl-drag-over-top,.pl-drag-over-bottom').forEach(el => el.classList.remove('pl-drag-over-top', 'pl-drag-over-bottom'));
+  const target = _plGetItemAtY(t.clientY);
+  if (!target) return;
+  const vi = parseInt(target.dataset.vi);
+  if (vi === _plDragSrc) return;
+  const rect = target.getBoundingClientRect();
+  target.classList.add(t.clientY < rect.top + rect.height / 2 ? 'pl-drag-over-top' : 'pl-drag-over-bottom');
+}
+function _onPlDragTouchEnd(e) {
+  if (!_plDragActive) return;
+  _plDragActive = false;
+  document.removeEventListener('touchmove', _onPlDragTouchMove);
+  document.removeEventListener('touchend', _onPlDragTouchEnd);
+  document.removeEventListener('touchcancel', _onPlDragTouchEnd);
+  if (_plDragEl) _plDragEl.classList.remove('pl-dragging');
+  _plDragEl = null;
+  document.querySelectorAll('.pl-drag-over-top,.pl-drag-over-bottom').forEach(el => el.classList.remove('pl-drag-over-top', 'pl-drag-over-bottom'));
+  if (_plDragSrc < 0) return;
+  const touch = e.changedTouches[0];
+  const target = _plGetItemAtY(touch.clientY);
+  if (!target) { _plDragSrc = -1; return; }
+  const vi = parseInt(target.dataset.vi);
+  if (vi === _plDragSrc) { _plDragSrc = -1; return; }
+  const rect = target.getBoundingClientRect();
+  const before = touch.clientY < rect.top + rect.height / 2;
+  const pts = _getSortedPlaylistTracks();
+  const moved = pts.splice(_plDragSrc, 1)[0];
+  let insertAt = vi;
+  if (_plDragSrc < vi) insertAt = vi - 1;
+  if (!before) insertAt += 1;
+  pts.splice(insertAt, 0, moved);
+  pts.forEach((pt, idx) => {
+    pt.order = idx;
+    _ptSave(pt).catch(() => {});
+  });
+  pts.forEach(pt => {
+    const mem = playlistTracks.find(p => p.id === pt.id);
+    if (mem) mem.order = pt.order;
+  });
+  _plDragSrc = -1;
+  renderPlaylistTracks();
 }
 function _onPlPendingMove(e) {
   if (!_plDragPending) return;
@@ -3566,7 +4276,7 @@ function _onPlDragUp(e) {
 init();
 window._restoreCursor = null;
 (function () {
-  const cur = 'url("cursor/cursor.png") 2 2, none';
+  const cur = 'url("cursor/cursor.png") 2 2, auto';
   function applyToAll() {
     document.querySelectorAll('*').forEach(el => el.style.setProperty('cursor', cur, 'important'));
   }
@@ -3816,10 +4526,15 @@ function _refreshStatsIfOpen() {
   if (!modal || modal.classList.contains('hidden')) return;
   renderStatsTab(_statsCurrentTab);
 }
-function openStatsModal() {
-  document.getElementById('stats-modal').classList.remove('hidden');
+async function openStatsModal() {
+  const modal = document.getElementById('stats-modal');
+  const card = modal.querySelector('.stats-modal-card');
+  modal.classList.remove('hidden');
   document.getElementById('btn-stats').classList.add('active');
-  renderStatsTab(_statsCurrentTab);
+  card.classList.remove('stats-modal-card--animate');
+  void card.offsetWidth;
+  card.classList.add('stats-modal-card--animate');
+  await switchStatsTab(_statsCurrentTab);
 }
 function closeStatsModal() {
   const modal = document.getElementById('stats-modal');
@@ -3839,18 +4554,37 @@ function closeStatsModal() {
 document.getElementById('stats-modal').addEventListener('click', function (e) {
   if (e.target === this) closeStatsModal();
 });
-function switchStatsTab(tab) {
+async function switchStatsTab(tab) {
   _statsCurrentTab = tab;
   document.querySelectorAll('.stats-tab').forEach(b => b.classList.remove('active'));
   document.getElementById('stats-tab-' + tab).classList.add('active');
-  document.querySelectorAll('.stats-panel').forEach(p => p.classList.remove('active'));
-  document.getElementById('stats-panel-' + tab).classList.add('active');
-  renderStatsTab(tab);
+
+  const current = document.querySelector('.stats-panel.active');
+  if (current) {
+    current.style.transition = 'opacity 0.18s ease, transform 0.18s ease';
+    current.style.opacity = '0';
+    current.style.transform = 'translateY(-6px)';
+    await new Promise(r => setTimeout(r, 180));
+    current.style.transition = '';
+    current.style.opacity = '';
+    current.style.transform = '';
+    current.classList.remove('active', 'stats-panel--animate');
+  } else {
+    document.querySelectorAll('.stats-panel').forEach(p => {
+      p.classList.remove('active', 'stats-panel--animate');
+    });
+  }
+
+  const panel = document.getElementById('stats-panel-' + tab);
+  await renderStatsTab(tab);
+  panel.classList.add('active');
+  void panel.offsetWidth;
+  panel.classList.add('stats-panel--animate');
 }
-function renderStatsTab(tab) {
-  if (tab === 'tracks') renderStatsTracks();
-  if (tab === 'playlists') renderStatsPlaylists();
-  if (tab === 'charts') renderStatsCharts();
+async function renderStatsTab(tab) {
+  if (tab === 'tracks') await renderStatsTracks();
+  if (tab === 'playlists') await renderStatsPlaylists();
+  if (tab === 'charts') await renderStatsCharts();
 }
 async function renderStatsTracks() {
   const allRecs = await _statsTrackGetAll();
@@ -4219,9 +4953,11 @@ function _chartSetupZoom(chartSize) {
 (function () {
   const sw = document.getElementById('settings-wrap');
   const stw = document.getElementById('stats-wrap');
+  const vtw = document.getElementById('view-toggle-wrap');
   if (!sw || !stw) return;
   const obs = new MutationObserver(() => {
     stw.style.visibility = sw.style.visibility;
+    if (vtw) vtw.style.visibility = sw.style.visibility;
   });
   obs.observe(sw, {
     attributes: true,
